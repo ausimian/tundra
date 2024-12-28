@@ -19,6 +19,7 @@ else
 endif
 
 all: nif svr
+	@:
 
 clean:
 	rm -f $(TARGET_NIF) $(TARGET_SVR)
