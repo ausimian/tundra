@@ -7,6 +7,8 @@ TARGET_SVR=$(TARGET_DIR)/tundra_svr
 
 CFLAGS=-Werror -Wfatal-errors -Wall -Wextra -O2 -flto -std=c11 -pedantic
 
+ERL_INTERFACE_INCLUDE_DIR ?= $(shell elixir --eval 'IO.puts(Path.join([:code.root_dir(), "usr", "include"]))')
+
 SYMFLAGS=-fvisibility=hidden
 ifeq ($(UNAME), Linux)
 	SYMFLAGS+=
