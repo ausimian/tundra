@@ -172,7 +172,7 @@ int main(int argc, char ** argv) {
         exit_error("chmod");
     }
 
-    if(listen(s, 5) == -1) {
+    if(listen(s, SOMAXCONN) == -1) {
         exit_error("listen");
     }
 
