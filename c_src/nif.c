@@ -291,9 +291,35 @@ static ERL_NIF_TERM controlling_process(ErlNifEnv* env, int argc, const ERL_NIF_
     return s_ok;
 }
 
+static ERL_NIF_TERM close_fd(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    void *obj;
+    if( argc != 1 || !enif_get_resource(env, argv[0], s_fdrt, &obj) ) {
+        return enif_make_badarg(env);
+    }
+
+    struct fd_object_t * fd_obj = obj;
+    ErlNifPid self;
+    if( enif_compare_pids(&fd_obj->cp, enif_self(env, &self)) != 0 ) {
+        return enif_make_tuple2(env, s_error, s_not_owner);
+    }
+
+    int ret = enif_select(env, fd_obj->fd, ERL_NIF_SELECT_STOP, fd_obj, NULL, enif_make_ref(env));
+    if( ret < 0 ) {
+        if( ret & ERL_NIF_SELECT_FAILED ) {
+            return make_error(env, errno);
+        } else {
+            return make_error(env, EINVAL);
+        } 
+    }
+
+    return s_ok;
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"connect", 0, connect_svr, 0},
+    {"close", 1, close_fd, 0},
     {"send_request", 2, send_request, 0},
     {"recv_response", 2, recv_response, 0},
     {"controlling_process", 2, controlling_process, 0}

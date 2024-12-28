@@ -98,9 +98,10 @@ defmodule Tundra.Client do
     :erlang.load_nif(to_charlist(path), 0)
   end
 
-  @nifs connect: 0, send_request: 2, recv_response: 2, controlling_process: 2
+  @nifs connect: 0, send_request: 2, recv_response: 2, controlling_process: 2, close: 1
   defp connect, do: :erlang.nif_error(:not_implemented)
   defp send_request(_conn, _ref), do: :erlang.nif_error(:not_implemented)
   defp recv_response(_conn, _ref), do: :erlang.nif_error(:not_implemented)
+  def close(_ref), do: :erlang.nif_error(:not_implemented)
   def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
 end

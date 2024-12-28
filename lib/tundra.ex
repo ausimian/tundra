@@ -11,6 +11,11 @@ defmodule Tundra do
     end
   end
 
+  @spec close(reference()) :: :ok | {:error, atom()}
+  def close(ref) when is_reference(ref) do
+    Tundra.Client.close(ref)
+  end
+
   @spec controlling_process(reference(), pid()) :: :ok | {:error, :not_owner}
   def controlling_process(ref, pid) when is_reference(ref) and is_pid(pid) do
     Tundra.Client.controlling_process(ref, pid)
