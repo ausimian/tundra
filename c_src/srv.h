@@ -6,6 +6,12 @@
 
 #define SVR_PATH "/var/run/tundra.sock"
 
+#ifdef __APPLE__
+#define TUNDRA_MSG_NOSIGNAL 0
+#elif __linux__
+#define TUNDRA_MSG_NOSIGNAL MSG_NOSIGNAL
+#endif
+
 enum request_type_t {
     REQUEST_TYPE_CREATE_TUN = 0
 };
@@ -18,7 +24,7 @@ struct create_tun_request_t {
 };
 
 struct create_tun_response_t {
-    char name[IFNAMSIZ];
+    char name[IF_NAMESIZE];
 };
 
 struct request_t {
