@@ -283,7 +283,9 @@ static ERL_NIF_TERM controlling_process(ErlNifEnv* env, int argc, const ERL_NIF_
     if( enif_compare_pids(&fd_obj->cp, &pid) != 0 ) {
         fd_obj->cp = pid;
         enif_demonitor_process(env, fd_obj, &fd_obj->mon);
-        enif_monitor_process(env, fd_obj, &pid, &fd_obj->mon);
+        if(enif_monitor_process(env, fd_obj, &pid, &fd_obj->mon) != 0) {
+            enif_select(env, fd_obj->fd, ERL_NIF_SELECT_STOP, fd_obj, NULL, enif_make_ref(env));
+        }
     }
 
     return s_ok;

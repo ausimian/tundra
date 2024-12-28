@@ -102,5 +102,5 @@ defmodule Tundra.Client do
   defp connect, do: :erlang.nif_error(:not_implemented)
   defp send_request(_conn, _ref), do: :erlang.nif_error(:not_implemented)
   defp recv_response(_conn, _ref), do: :erlang.nif_error(:not_implemented)
-  defp controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
+  def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
 end

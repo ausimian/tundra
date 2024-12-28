@@ -4,9 +4,15 @@ defmodule Tundra do
   """
 
   def open do
-    with {:ok, pid} <-
-           DynamicSupervisor.start_child(Tundra.DynamicSupervisor, Tundra.Client.child_spec([])) do
+    alias Tundra.DynamicSupervisor, as: Sup
+
+    with {:ok, pid} <- DynamicSupervisor.start_child(Sup, Tundra.Client) do
       Tundra.Client.create_tun_device(pid)
     end
+  end
+
+  @spec controlling_process(reference(), pid()) :: :ok | {:error, :not_owner}
+  def controlling_process(ref, pid) when is_reference(ref) and is_pid(pid) do
+    Tundra.Client.controlling_process(ref, pid)
   end
 end
