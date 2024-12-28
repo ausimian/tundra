@@ -1,20 +1,24 @@
+#include <errno.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
 #include <unistd.h>
 #include "srv.h"
 #if __APPLE__
 #include <sys/sys_domain.h>
 #include <sys/kern_control.h>
 #include <net/if_utun.h>
-#define SENDFLAGS 0
 #else
+#include <fcntl.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
 #endif
 
 static int exit_error(char * msg) {
@@ -59,15 +63,16 @@ static void sendfd_with_retry(int dest, int fd, const void * buf, size_t sz) {
 
     *((int *) CMSG_DATA(cmsg)) = fd;
 
-    int ret = sendmsg(dest, &msg, SENDFLAGS);
+    int ret = sendmsg(dest, &msg, TUNDRA_MSG_NOSIGNAL);
     while(ret == -1 && errno == EINTR) {
-        ret = sendmsg(dest, &msg, SENDFLAGS);
+        ret = sendmsg(dest, &msg, TUNDRA_MSG_NOSIGNAL);
     }
     if(ret == -1) {
         exit_error("sendmsg");
     }
 }
 
+#if __APPLE__
 static void create_tun(int c, const struct request_t * req) {
 
     (void)req;
@@ -102,6 +107,28 @@ static void create_tun(int c, const struct request_t * req) {
 
     sendfd_with_retry(c, tun, &res, sizeof(res));
 }
+#elif __linux__
+static void create_tun(int c, const struct request_t * req) {
+    (void)req;
+
+    int tun = open("/dev/net/tun", O_RDWR);
+    if(tun == -1) {
+        exit_error("open");
+    }
+
+    struct ifreq ifr = { 0 };
+    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+
+    if(-1 == ioctl(tun, TUNSETIFF, (void *)&ifr)) {
+        exit_error("ioctl");
+    }
+
+    struct response_t res = { .type = REQUEST_TYPE_CREATE_TUN };
+    strncpy(res.msg.create_tun.name, ifr.ifr_name, sizeof(res.msg.create_tun.name));
+
+    sendfd_with_retry(c, tun, &res, sizeof(res));
+}
+#endif
 
 
 

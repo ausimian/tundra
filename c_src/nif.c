@@ -9,8 +9,6 @@
 #include <erl_driver.h>
 #include "srv.h"
 
-// #define HERE printf("HERE: %s:%d\r\n", __FILE__, __LINE__);
-
 static ErlNifResourceType * s_fdrt;
 
 static ERL_NIF_TERM s_ok;
@@ -188,7 +186,7 @@ static ERL_NIF_TERM send_request(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int s = fd_obj->fd;
 
     struct request_t req = { .type = REQUEST_TYPE_CREATE_TUN };
-    int rc = send(s, &req, sizeof(req), 0);
+    int rc = send(s, &req, sizeof(req), TUNDRA_MSG_NOSIGNAL);
     if( rc == -1 && errno == EINTR ) {
         return enif_schedule_nif(env, "send_request", 0, send_request, 2, argv);
     }
@@ -250,9 +248,11 @@ static ERL_NIF_TERM connect_svr(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if(-1 == fcntl(fd_obj->fd, F_SETFL, fcntl(fd_obj->fd, F_GETFL) | O_NONBLOCK)) {
         goto error;
     }
+#ifdef __APPLE__
     if(-1 == setsockopt(fd_obj->fd, SOL_SOCKET, SO_NOSIGPIPE, &(int){1}, sizeof(int))) {
         goto error;
     }
+#endif
 
     ERL_NIF_TERM res = enif_make_resource(env, fd_obj);
     ret = enif_schedule_nif(env, "try_connect", 0, try_connect, 1, &res);
