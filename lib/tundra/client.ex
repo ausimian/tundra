@@ -13,8 +13,8 @@ defmodule Tundra.Client do
     }
   end
 
-  def create_tun_device(pid) do
-    :gen_statem.call(pid, :create_tun_device)
+  def create_tun_device(pid, params) when is_pid(pid) and is_map(params) do
+    :gen_statem.call(pid, {:create_tun_device, params})
   end
 
   def start_link(opts) do
@@ -38,15 +38,20 @@ defmodule Tundra.Client do
   end
 
   @impl true
-  def handle_event({:call, from}, :create_tun_device, :connected, %__MODULE__{caller: nil} = data) do
-    {:next_state, :sending, %__MODULE__{data | caller: from},
-     {:next_event, :internal, :send_request}}
+  def handle_event(
+        {:call, from},
+        {:create_tun_device, params},
+        :connected,
+        %__MODULE__{caller: nil} = data
+      ) do
+    event = {:next_event, :internal, {:send_request, params}}
+    {:next_state, :sending, %__MODULE__{data | caller: from}, event}
   end
 
-  def handle_event(:internal, :send_request, :sending, %__MODULE__{blocked: nil} = data) do
+  def handle_event(:internal, {:send_request, params}, :sending, %__MODULE__{blocked: nil} = data) do
     ref = make_ref()
 
-    case send_request(data.conn, ref) do
+    case send_request(data.conn, ref, params) do
       :ok ->
         {:next_state, :receiving, data, {:next_event, :internal, :recv_response}}
 
@@ -98,9 +103,9 @@ defmodule Tundra.Client do
     :erlang.load_nif(to_charlist(path), 0)
   end
 
-  @nifs connect: 0, send_request: 2, recv_response: 2, controlling_process: 2, close: 1
+  @nifs connect: 0, send_request: 3, recv_response: 2, controlling_process: 2, close: 1
   defp connect, do: :erlang.nif_error(:not_implemented)
-  defp send_request(_conn, _ref), do: :erlang.nif_error(:not_implemented)
+  defp send_request(_conn, _ref, _params), do: :erlang.nif_error(:not_implemented)
   defp recv_response(_conn, _ref), do: :erlang.nif_error(:not_implemented)
   def close(_ref), do: :erlang.nif_error(:not_implemented)
   def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
