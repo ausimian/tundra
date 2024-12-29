@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdint.h>
@@ -72,11 +73,8 @@ static void sendfd_with_retry(int dest, int fd, const void * buf, size_t sz) {
     }
 }
 
+static int create_tun(struct response_t * resp) {
 #if __APPLE__
-static void create_tun(int c, const struct request_t * req) {
-
-    (void)req;
-
     int tun = socket(AF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
     if(tun == -1) {
         exit_error("socket");
@@ -99,18 +97,11 @@ static void create_tun(int c, const struct request_t * req) {
         exit_error("connect");
     }
 
-    struct response_t res = { .type = REQUEST_TYPE_CREATE_TUN };
-    socklen_t ifname_len = ( int )sizeof(res.msg.create_tun.name);
-    if(-1 == getsockopt(tun, SYSPROTO_CONTROL, UTUN_OPT_IFNAME, res.msg.create_tun.name, &ifname_len)) {
+    socklen_t ifname_len = ( int )sizeof(resp->msg.create_tun.name);
+    if(-1 == getsockopt(tun, SYSPROTO_CONTROL, UTUN_OPT_IFNAME, resp->msg.create_tun.name, &ifname_len)) {
         exit_error("getsockopt");
     }
-
-    sendfd_with_retry(c, tun, &res, sizeof(res));
-}
 #elif __linux__
-static void create_tun(int c, const struct request_t * req) {
-    (void)req;
-
     int tun = open("/dev/net/tun", O_RDWR);
     if(tun == -1) {
         exit_error("open");
@@ -123,24 +114,41 @@ static void create_tun(int c, const struct request_t * req) {
         exit_error("ioctl");
     }
 
-    struct response_t res = { .type = REQUEST_TYPE_CREATE_TUN };
-    strncpy(res.msg.create_tun.name, ifr.ifr_name, sizeof(res.msg.create_tun.name));
-
-    sendfd_with_retry(c, tun, &res, sizeof(res));
-}
+    strncpy(resp->msg.create_tun.name, ifr.ifr_name, sizeof(resp->msg.create_tun.name));
 #endif
+    resp->type = REQUEST_TYPE_CREATE_TUN;
 
+    return tun;
+}
 
+static void configure_tun(const char * name, struct create_tun_request_t *msg) {
+    struct in6_addr tmp;
+    if(!inet_pton(AF_INET6, msg->addr, &tmp)) {
+        exit_error("inet_pton (addr)");
+    }
+    if(!inet_pton(AF_INET6, msg->netmask, &tmp)) {
+        exit_error("inet_pton (netmask)");
+    }
+
+    char * cmd = NULL;
+    if(asprintf(&cmd, "ifconfig %s inet6 %s netmask %s mtu %d", name, msg->addr, msg->netmask, msg->mtu) >= 0) {
+        if(0 != system(cmd)) {
+            exit_error("system");
+        }
+        free(cmd);
+    }
+}
 
 static void run_child(int c) {
     struct request_t req;
+    struct response_t resp;
     read_with_retry(c, &req, sizeof(req));
-    switch(req.type) {
-        case REQUEST_TYPE_CREATE_TUN:
-            create_tun(c, &req);
-            break;
-        default:
-            exit_error("unknown request type");
+    if(req.type == REQUEST_TYPE_CREATE_TUN && req.msg.create_tun.size == sizeof(req.msg.create_tun)) {
+       int tun = create_tun(&resp);
+       configure_tun(resp.msg.create_tun.name, &req.msg.create_tun);
+       sendfd_with_retry(c, tun, &resp, sizeof(resp));
+    } else {
+      exit_error("unknown request type");
     }
 }
 
