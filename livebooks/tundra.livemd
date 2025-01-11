@@ -1,0 +1,62 @@
+# Echo
+
+```elixir
+# Install tundra here
+```
+
+## Section
+
+```elixir
+defmodule Reflector do
+  use GenServer
+
+  @mtu 1500
+  
+  def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
+
+  @impl true
+  def init(_args) do
+    {:ok, state} =
+      Tundra.create("fd11:b7b7:4360::2", 
+        dstaddr: "fd11:b7b7:4360::1",
+        netmask: "ffff:ffff:ffff:ffff::", 
+        mtu: @mtu)
+    {:ok, state, {:continue, :read}}
+  end
+
+  @impl true
+  def handle_continue(:read, {dev, _} = state) do
+    case Tundra.recv(dev, @mtu, :nowait) do
+      {:ok, data} ->
+        {:noreply, state, {:continue, {:reflect, data}}}
+      {:select, _} ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_continue({:reflect, data}, {dev, _} = state) do
+    <<hdr::binary-size(4), prefix::binary-size(8), src::binary-size(16), dst::binary-size(16), rest::binary>> = data
+    reflected = [hdr, prefix, dst, src, rest]
+    :ok = Tundra.send(dev, reflected, :nowait)
+    {:noreply, state, {:continue, :read}}
+  end
+
+  @impl true
+  def handle_info({:"$socket", dev, :select, _}, {dev, _} = state) do
+    {:noreply, state, {:continue, :read}}
+  end
+  def handle_info({:select, dev, _, :recv}, {dev, _} = state) do
+    {:noreply, state, {:continue, :read}}    
+  end
+
+end
+
+```
+
+```elixir
+{:ok, pid} = Reflector.start_link([])
+```
+
+```elixir
+GenServer.stop(pid)
+```
