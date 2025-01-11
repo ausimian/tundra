@@ -11,6 +11,7 @@ ERL_INTERFACE_INCLUDE_DIR ?= $(shell elixir --eval 'IO.puts(Path.join([:code.roo
 
 SYMFLAGS=-fvisibility=hidden
 ifeq ($(UNAME), Linux)
+	CFLAGS+=-D__STDC_WANT_LIB_EXT2__=1
 	SYMFLAGS+=
 else ifeq ($(UNAME), Darwin)
 	SYMFLAGS+=-undefined dynamic_lookup
