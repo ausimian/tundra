@@ -18,12 +18,14 @@ enum request_type_t {
 
 struct create_tun_request_t {
     size_t size;
-    struct sockaddr_storage addr;
-    struct sockaddr_storage netmask;
+    char addr[INET6_ADDRSTRLEN];
+    char dstaddr[INET6_ADDRSTRLEN];
+    char netmask[INET6_ADDRSTRLEN];
     int mtu;
 };
 
 struct create_tun_response_t {
+    size_t size;
     char name[IF_NAMESIZE];
 };
 

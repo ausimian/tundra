@@ -1,6 +1,9 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -15,6 +18,10 @@ static ERL_NIF_TERM s_ok;
 static ERL_NIF_TERM s_error;
 static ERL_NIF_TERM s_eagain;
 static ERL_NIF_TERM s_not_owner;
+static ERL_NIF_TERM s_addr;
+static ERL_NIF_TERM s_dstaddr;
+static ERL_NIF_TERM s_netmask;
+static ERL_NIF_TERM s_mtu;
 
 struct fd_object_t {
     int fd;
@@ -82,6 +89,10 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     s_error = enif_make_atom(env, "error");
     s_eagain = enif_make_atom(env, "eagain");
     s_not_owner = enif_make_atom(env, "not_owner");
+    s_addr = enif_make_atom(env, "addr");
+    s_dstaddr = enif_make_atom(env, "dstaddr");
+    s_netmask = enif_make_atom(env, "netmask");
+    s_mtu = enif_make_atom(env, "mtu");
     s_fdrt = enif_init_resource_type(env, "fdrt", &s_fdrt_init, ERL_NIF_RT_CREATE, NULL);
     return s_fdrt ? 0 : -1;
 }
@@ -113,9 +124,6 @@ static ERL_NIF_TERM recv_response(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     };
 
     int ret = recvmsg(s, &msg, 0);
-    if(ret == -1 && errno == EINTR) {
-        return enif_schedule_nif(env, "recv_response", 0, recv_response, 2, argv);
-    }
     if( ret == -1 && ( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
         if(enif_select(env, s, ERL_NIF_SELECT_READ, obj, NULL, argv[1]) < 0) {
             return enif_make_badarg(env);
@@ -175,7 +183,7 @@ static ERL_NIF_TERM recv_response(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM send_request(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     void *obj;
-    if( argc != 2 || !enif_get_resource(env, argv[0], s_fdrt, &obj) || !enif_is_ref(env, argv[1]) ) {
+    if( argc != 3 || !enif_get_resource(env, argv[0], s_fdrt, &obj) || !enif_is_ref(env, argv[1]) || !enif_is_map(env, argv[2]) ) {
         return enif_make_badarg(env);
     }
     struct fd_object_t * fd_obj = obj;
@@ -185,11 +193,38 @@ static ERL_NIF_TERM send_request(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
     int s = fd_obj->fd;
 
-    struct request_t req = { .type = REQUEST_TYPE_CREATE_TUN };
-    int rc = send(s, &req, sizeof(req), TUNDRA_MSG_NOSIGNAL);
-    if( rc == -1 && errno == EINTR ) {
-        return enif_schedule_nif(env, "send_request", 0, send_request, 2, argv);
+    struct request_t req = { 
+        .type = REQUEST_TYPE_CREATE_TUN,
+        .msg.create_tun = {
+            .size = sizeof( struct create_tun_request_t )
+        }
+    };
+
+    ErlNifMapIterator iter;
+    if(!enif_map_iterator_create(env, argv[2], &iter, ERL_NIF_MAP_ITERATOR_FIRST)) {
+        return enif_make_badarg(env);
     }
+    ERL_NIF_TERM key, value;
+    bool ok = true;
+    while(ok && enif_map_iterator_get_pair(env, &iter, &key, &value)) {
+        if(0 == enif_compare(key, s_addr)) {
+            ok = !!enif_get_string(env, value, req.msg.create_tun.addr, sizeof(req.msg.create_tun.addr), ERL_NIF_UTF8);
+        } else if(0 == enif_compare(key, s_dstaddr)) {
+            ok = !!enif_get_string(env, value, req.msg.create_tun.dstaddr, sizeof(req.msg.create_tun.dstaddr), ERL_NIF_UTF8);
+        } else if(0 == enif_compare(key, s_netmask)) {
+            ok = !!enif_get_string(env, value, req.msg.create_tun.netmask, sizeof(req.msg.create_tun.netmask), ERL_NIF_UTF8);
+        } else if(0 == enif_compare(key, s_mtu)) {
+            ok = !!enif_get_int(env, value, &req.msg.create_tun.mtu);
+        }
+
+        enif_map_iterator_next(env, &iter);
+    }
+    enif_map_iterator_destroy(env, &iter);
+    if(!ok) {
+        return enif_make_badarg(env);
+    }
+
+    int rc = send(s, &req, sizeof(req), TUNDRA_MSG_NOSIGNAL);
     if( rc == -1 && ( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
         if(enif_select(env, s, ERL_NIF_SELECT_WRITE, obj, NULL, argv[1]) < 0) {
             return enif_make_badarg(env);
@@ -223,7 +258,7 @@ static ERL_NIF_TERM try_connect(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if( errno == EINPROGRESS ) {
         return enif_make_tuple2(env, s_ok, argv[0]);
     } else if( errno == EINTR ) {
-        return enif_schedule_nif(env, "try_connect", 0, try_connect, 1, argv);
+        return enif_schedule_nif(env, "try_connect", 0, try_connect, argc, argv);
     } else {
         return make_error(env, errno);
     }
@@ -320,7 +355,7 @@ static ErlNifFunc nif_funcs[] =
 {
     {"connect", 0, connect_svr, 0},
     {"close", 1, close_fd, 0},
-    {"send_request", 2, send_request, 0},
+    {"send_request", 3, send_request, 0},
     {"recv_response", 2, recv_response, 0},
     {"controlling_process", 2, controlling_process, 0}
 };
