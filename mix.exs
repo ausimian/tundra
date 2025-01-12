@@ -35,7 +35,7 @@ defmodule Tundra.MixProject do
 
   defp docs do
     [
-      main: "README",
+      main: "readme",
       source_url: "https://github.com/ausimian/tundra",
       source_ref: "#{version()}",
       logo: "tundra.png",
@@ -49,7 +49,7 @@ defmodule Tundra.MixProject do
       licenses: ["MIT"],
       files: ["lib", "c_src", "mix.exs", "Makefile", "README.md", "LICENSE.md", "CHANGELOG.md", ".formatter.exs"],
       links: %{
-        "GitHub" => "https://github.com/austimian/tundra/tree/#{version()}",
+        "GitHub" => "https://github.com/ausimian/tundra/tree/#{version()}",
       }
     ]
   end
