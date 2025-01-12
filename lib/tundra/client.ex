@@ -1,4 +1,5 @@
 defmodule Tundra.Client do
+  @moduledoc false
   @behaviour :gen_statem
   use TypedStruct
 
