@@ -66,7 +66,7 @@ defmodule Tundra.MixProject do
   end
 
   defp version_from_git do
-    case System.cmd("git", ["describe", "--tags", "--abbrev=0"], [stderr_to_stdout: true]) do
+    case System.cmd("git", ["describe", "--dirty"], [stderr_to_stdout: true]) do
       {version, 0} -> String.trim(version)
       _ -> nil
     end
