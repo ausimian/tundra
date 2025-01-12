@@ -48,14 +48,25 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: prod
     needs: build
     if: github.ref_type == 'tag'
 
     steps:
+    - name: Setup Elixir
+      uses: erlef/setup-elixir@v1
+      with:
+        elixir-version: '1.18.1'
+        otp-version: '27.2'
+
     - name: Check out
       uses: actions/checkout@v4
 
-    - name: hex.pm publish
-      uses: HypeRate/action-publish-hex@v2
+    - name: Install dependencies
+      run: mix deps.get --only prod
+    
+    - name: Publish to Hex
       env:
         HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+      run: mix hex.publish --yes
