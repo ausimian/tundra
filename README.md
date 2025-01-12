@@ -3,7 +3,7 @@
 [![Hex](https://img.shields.io/hexpm/v/tundra.svg)](https://hex.pm/packages/tundra)
 [![Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/tundra/)
 [![License](https://img.shields.io/hexpm/l/tundra.svg)](https://github.com/ausimian/tundra/blob/master/LICENSE.md)
-![github actions badge](https://github.com/ausimian/tundra/actions/workflows/build.yml/badge.svg)
+![github actions badge](https://github.com/ausimian/tundra/actions/workflows/build.yaml/badge.svg)
 
 TUN device support for Elixir.
 
