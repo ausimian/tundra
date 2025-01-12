@@ -122,11 +122,12 @@ defmodule Tundra do
   A TUN device creation option.
   """
   @type tun_option() ::
-          {:dstaddr, tun_address()} |
-          {:netmask, tun_address()} |
-          {:mtu, non_neg_integer()}
+          {:dstaddr, tun_address()}
+          | {:netmask, tun_address()}
+          | {:mtu, non_neg_integer()}
 
-  @spec create(tun_address(), list(tun_option())) :: {:ok, {tun_device(), String.t()}} | {:error, any()}
+  @spec create(tun_address(), list(tun_option())) ::
+          {:ok, {tun_device(), String.t()}} | {:error, any()}
   @doc """
   Create a TUN device.
 
@@ -171,6 +172,7 @@ defmodule Tundra do
   def controlling_process({:"$socket", _} = sock, pid) when is_pid(pid) do
     :socket.setopt(sock, {:otp, :controlling_process}, pid)
   end
+
   def controlling_process({:"$tundra", ref}, pid) when is_pid(pid) do
     Tundra.Client.controlling_process(ref, pid)
   end
@@ -186,10 +188,15 @@ defmodule Tundra do
   available. If data is available, it will be returned immediately. If no data is
   available, the function will return `{:select, select_info}`.
   """
-  @spec recv(tun_device(), non_neg_integer(), :nowait) :: {:ok, binary()} | {:select, :socket.select_info()}, {:error, any()}
+  @spec(
+    recv(tun_device(), non_neg_integer(), :nowait) ::
+      {:ok, binary()} | {:select, :socket.select_info()},
+    {:error, any()}
+  )
   def recv({:"$socket", _} = sock, length, :nowait) when is_integer(length) do
     :socket.recv(sock, length, [], :nowait)
   end
+
   def recv({:"$tundra", ref}, length, :nowait) when is_integer(length) do
     Tundra.Client.recv(ref, length, [], :nowait)
   end
@@ -204,10 +211,14 @@ defmodule Tundra do
   output buffer is full. If the buffer is full, the function will return
   `{:select, select_info}`.
   """
-  @spec send(tun_device(), iodata(), :nowait) :: :ok | {:select, :socket.select_info()}, {:error, any()}
+  @spec(
+    send(tun_device(), iodata(), :nowait) :: :ok | {:select, :socket.select_info()},
+    {:error, any()}
+  )
   def send({:"$socket", _} = sock, data, :nowait) do
     :socket.send(sock, data, [], :nowait)
   end
+
   def send({:"$tundra", ref}, data, :nowait) do
     Tundra.Client.send(ref, data, [], :nowait)
   end

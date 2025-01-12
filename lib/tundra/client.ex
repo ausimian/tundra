@@ -5,15 +5,15 @@ defmodule Tundra.Client do
 
   @on_load :load_nif
   if Version.match?(System.version(), ">= 1.16.0") do
-  @nifs connect: 0,
-        send_request: 3,
-        recv_response: 2,
-        controlling_process: 2,
-        close: 1,
-        get_fd: 1,
-        recv_data: 2,
-        send_data: 2,
-        cancel_select: 2
+    @nifs connect: 0,
+          send_request: 3,
+          recv_response: 2,
+          controlling_process: 2,
+          close: 1,
+          get_fd: 1,
+          recv_data: 2,
+          send_data: 2,
+          cancel_select: 2
   end
 
   def child_spec(args) do
@@ -35,6 +35,7 @@ defmodule Tundra.Client do
 
         {:unix, :linux} ->
           {:ok, {{:"$tundra", ref}, name}}
+
         _ ->
           {:error, :not_supported}
       end
@@ -42,13 +43,13 @@ defmodule Tundra.Client do
   end
 
   @spec recv(reference(), non_neg_integer(), list(), :nowait) ::
-    {:ok, binary()} | {:error, any()} | {:select, :socket.select_info()}
+          {:ok, binary()} | {:error, any()} | {:select, :socket.select_info()}
   def recv(ref, length, _flags, :nowait) do
     recv_data(ref, length)
   end
 
   @spec send(reference(), iodata(), list(), :nowait) ::
-    :ok | {:ok, binary()} | {:select, :socket.select_info()} | {:error, any()}
+          :ok | {:ok, binary()} | {:select, :socket.select_info()} | {:error, any()}
   def send(ref, data, _flags, :nowait) do
     send_data(ref, :erlang.iolist_to_iovec(data))
   end

@@ -47,9 +47,18 @@ defmodule Tundra.MixProject do
     [
       description: "TUN device support for Elixir",
       licenses: ["MIT"],
-      files: ["lib", "c_src", "mix.exs", "Makefile", "README.md", "LICENSE.md", "CHANGELOG.md", ".formatter.exs"],
+      files: [
+        "lib",
+        "c_src",
+        "mix.exs",
+        "Makefile",
+        "README.md",
+        "LICENSE.md",
+        "CHANGELOG.md",
+        ".formatter.exs"
+      ],
       links: %{
-        "GitHub" => "https://github.com/ausimian/tundra/tree/#{version()}",
+        "GitHub" => "https://github.com/ausimian/tundra/tree/#{version()}"
       }
     ]
   end
@@ -66,7 +75,7 @@ defmodule Tundra.MixProject do
   end
 
   defp version_from_git do
-    case System.cmd("git", ["describe", "--dirty"], [stderr_to_stdout: true]) do
+    case System.cmd("git", ["describe", "--dirty"], stderr_to_stdout: true) do
       {version, 0} -> String.trim(version)
       _ -> nil
     end
