@@ -29,6 +29,7 @@ static ERL_NIF_TERM s_recv;
 static ERL_NIF_TERM s_send;
 static ERL_NIF_TERM s_select;
 static ERL_NIF_TERM s_select_info;
+static ERL_NIF_TERM s_socket;
 static ERL_NIF_TERM s_tundra;
 
 struct fd_object_t
@@ -109,6 +110,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     s_send = enif_make_atom(env, "send");
     s_select = enif_make_atom(env, "select");
     s_select_info = enif_make_atom(env, "select_info");
+    s_socket = enif_make_atom(env, "$socket");
     s_tundra = enif_make_atom(env, "$tundra");
     s_fdrt = enif_init_resource_type(env, "fdrt", &s_fdrt_init, ERL_NIF_RT_CREATE, NULL);
     return s_fdrt ? 0 : -1;
@@ -459,7 +461,7 @@ static ERL_NIF_TERM recv_data(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         {
             ERL_NIF_TERM ref = enif_make_ref(env);
             ERL_NIF_TERM obj = enif_make_tuple2(env, s_tundra, argv[0]);
-            ERL_NIF_TERM msg = enif_make_tuple4(env, s_select, obj, ref, s_recv);
+            ERL_NIF_TERM msg = enif_make_tuple4(env, s_socket, obj, s_select, ref);
             if (enif_select_read(env, fd_obj->fd, fd_obj, NULL, msg, NULL) >= 0)
             {
                 ret = enif_make_tuple2(env, s_select, enif_make_tuple3(env, s_select_info, s_recv, ref));
@@ -517,9 +519,10 @@ static ERL_NIF_TERM send_data(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         int err = errno;
         if (err == EAGAIN || err == EWOULDBLOCK)
         {
+            // Use a notifaction msg similar to the one used by the erlang socket support
             ERL_NIF_TERM ref = enif_make_ref(env);
             ERL_NIF_TERM obj = enif_make_tuple2(env, s_tundra, argv[0]);
-            ERL_NIF_TERM msg = enif_make_tuple4(env, s_select, obj, ref, s_send);
+            ERL_NIF_TERM msg = enif_make_tuple4(env, s_socket, obj, s_select, ref);
             if (enif_select_write(env, fd_obj->fd, fd_obj, NULL, msg, NULL) >= 0)
             {
                 return enif_make_tuple2(env, s_select, enif_make_tuple3(env, s_select_info, s_send, ref));

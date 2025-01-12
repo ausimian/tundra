@@ -1,7 +1,9 @@
 # Echo
 
 ```elixir
-# Install tundra here
+Mix.install([
+  {:tundra, "> 0.0.0"}
+])
 ```
 
 ## Section
@@ -11,21 +13,23 @@ defmodule Reflector do
   use GenServer
 
   @mtu 1500
-  
+
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
   @impl true
   def init(_args) do
+    # Create a TUN device with the given address and options
     {:ok, state} =
-      Tundra.create("fd11:b7b7:4360::2", 
+      Tundra.create("fd11:b7b7:4360::2",
         dstaddr: "fd11:b7b7:4360::1",
-        netmask: "ffff:ffff:ffff:ffff::", 
+        netmask: "ffff:ffff:ffff:ffff::",
         mtu: @mtu)
     {:ok, state, {:continue, :read}}
   end
 
   @impl true
   def handle_continue(:read, {dev, _} = state) do
+    # Read a frame from the device
     case Tundra.recv(dev, @mtu, :nowait) do
       {:ok, data} ->
         {:noreply, state, {:continue, {:reflect, data}}}
@@ -35,22 +39,26 @@ defmodule Reflector do
   end
 
   def handle_continue({:reflect, data}, {dev, _} = state) do
-    <<hdr::binary-size(4), prefix::binary-size(8), src::binary-size(16), dst::binary-size(16), rest::binary>> = data
-    reflected = [hdr, prefix, dst, src, rest]
+    # Swap the source and destination addresses of the ipv6 frame
+    <<hdr::binary-size(4),
+      pre::binary-size(8),
+      src::binary-size(16),
+      dst::binary-size(16),
+      rest::binary>> = data
+    reflected = [hdr, pre, dst, src, rest]
+
+    # Write the frame back to the device, assume it won't block
     :ok = Tundra.send(dev, reflected, :nowait)
     {:noreply, state, {:continue, :read}}
   end
 
   @impl true
   def handle_info({:"$socket", dev, :select, _}, {dev, _} = state) do
+    # Handle 'input ready' notifications
     {:noreply, state, {:continue, :read}}
-  end
-  def handle_info({:select, dev, _, :recv}, {dev, _} = state) do
-    {:noreply, state, {:continue, :read}}    
   end
 
 end
-
 ```
 
 ```elixir
