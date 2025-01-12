@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.1.4 - 2025-01-12
+
+- Internal CI/CD changes only
+
 ## 0.1.3 - 2025-01-12
 
 - Typos
