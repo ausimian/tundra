@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.1.8 - 2025-01-12
+## 0.1.9 - 2025-01-12
 
 - Internal CI/CD changes only
 
