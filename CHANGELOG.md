@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.1.3 - 2025-01-12
+
+- Typos
+- mix format
+
 ## 0.1.2 - 2025-01-12
 
 - Fix up some hex package stuff
