@@ -64,7 +64,13 @@ defmodule Tundra.MixProject do
   end
 
   defp version do
-    version_from_pkg() || version_from_git() || "0.0.0"
+    version_from_pkg() || version_from_github() || version_from_git() || "0.0.0"
+  end
+
+  defp version_from_github do
+    if System.get_env("GITHUB_REF_TYPE") == "tag" do
+      System.get_env("GITHUB_REF_NAME")
+    end
   end
 
   defp version_from_pkg do

@@ -54,8 +54,6 @@ jobs:
     steps:
     - name: Check out
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
     - name: hex.pm publish
       uses: HypeRate/action-publish-hex@v2
