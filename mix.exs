@@ -35,7 +35,7 @@ defmodule Tundra.MixProject do
     [
       main: "README",
       source_url: "https://github.com/ausimian/tundra",
-      source_ref: "#{Mix.Project.config[:version]}",
+      source_ref: "#{version()}",
       logo: "tundra.png",
       extras: ["LICENSE.md", "CHANGELOG.md", "README.md"]
     ]
