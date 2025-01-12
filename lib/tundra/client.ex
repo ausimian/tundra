@@ -3,6 +3,17 @@ defmodule Tundra.Client do
   use TypedStruct
 
   @on_load :load_nif
+  if Version.match?(System.version(), ">= 1.16.0") do
+  @nifs connect: 0,
+        send_request: 3,
+        recv_response: 2,
+        controlling_process: 2,
+        close: 1,
+        get_fd: 1,
+        recv_data: 2,
+        send_data: 2,
+        cancel_select: 2
+  end
 
   def child_spec(args) do
     %{
@@ -14,9 +25,39 @@ defmodule Tundra.Client do
   end
 
   def create_tun_device(pid, params) when is_pid(pid) and is_map(params) do
-    :gen_statem.call(pid, {:create_tun_device, params})
+    with {:ok, {ref, name}} <- :gen_statem.call(pid, {:create_tun_device, params}) do
+      case :os.type() do
+        {:unix, :darwin} ->
+          {:ok, s} = :socket.open(get_fd(ref), %{domain: 32, type: 2, protocol: 2})
+          close(ref)
+          {:ok, {s, name}}
+
+        {:unix, :linux} ->
+          {:ok, {{:"$tundra", ref}, name}}
+        _ ->
+          {:error, :not_supported}
+      end
+    end
   end
 
+  @spec recv(reference(), non_neg_integer(), list(), :nowait) ::
+    {:ok, binary()} | {:error, any()} | {:select, :socket.select_info()}
+  def recv(ref, length, _flags, :nowait) do
+    recv_data(ref, length)
+  end
+
+  @spec send(reference(), iodata(), list(), :nowait) ::
+    :ok | {:ok, binary()} | {:select, :socket.select_info()} | {:error, any()}
+  def send(ref, data, _flags, :nowait) do
+    send_data(ref, :erlang.iolist_to_iovec(data))
+  end
+
+  @spec cancel(reference(), :socket.select_info()) :: :ok | {:error, any()}
+  def cancel(ref, select_info) do
+    cancel_select(ref, select_info)
+  end
+
+  @spec start_link(any()) :: :ignore | {:error, any()} | {:ok, pid()}
   def start_link(opts) do
     :gen_statem.start_link(__MODULE__, opts, [])
   end
@@ -103,10 +144,15 @@ defmodule Tundra.Client do
     :erlang.load_nif(to_charlist(path), 0)
   end
 
-  @nifs connect: 0, send_request: 3, recv_response: 2, controlling_process: 2, close: 1
   defp connect, do: :erlang.nif_error(:not_implemented)
   defp send_request(_conn, _ref, _params), do: :erlang.nif_error(:not_implemented)
   defp recv_response(_conn, _ref), do: :erlang.nif_error(:not_implemented)
+  defp get_fd(_conn), do: :erlang.nif_error(:not_implemented)
+
+  defp recv_data(_ref, _length), do: :erlang.nif_error(:not_implemented)
+  defp send_data(_ref, _data), do: :erlang.nif_error(:not_implemented)
+  defp cancel_select(_ref, _select_info), do: :erlang.nif_error(:not_implemented)
+
   def close(_ref), do: :erlang.nif_error(:not_implemented)
   def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
 end

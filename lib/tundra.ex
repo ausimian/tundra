@@ -3,6 +3,8 @@ defmodule Tundra do
   Documentation for `Tundra`.
   """
 
+  @type tun_device() :: :socket.socket() | {:"$tundra", reference()}
+
   def create(address, opts \\ []) do
     alias Tundra.DynamicSupervisor, as: Sup
 
@@ -17,15 +19,37 @@ defmodule Tundra do
     end
   end
 
-  @spec close(reference()) :: :ok | {:error, atom()}
-  def close(ref) when is_reference(ref) do
-    Tundra.Client.close(ref)
+  @spec controlling_process(tun_device(), pid()) :: :ok | {:error, any()}
+  def controlling_process({:"$socket", _} = sock, pid) when is_pid(pid) do
+    :socket.setopt(sock, {:otp, :controlling_process}, pid)
   end
-
-  @spec controlling_process(reference(), pid()) :: :ok | {:error, :not_owner}
-  def controlling_process(ref, pid) when is_reference(ref) and is_pid(pid) do
+  def controlling_process({:"$tundra", ref}, pid) when is_pid(pid) do
     Tundra.Client.controlling_process(ref, pid)
   end
+
+  @spec recv(tun_device(), non_neg_integer(), :nowait) :: {:ok, binary()} | {:error, any()}
+  def recv({:"$socket", _} = sock, length, :nowait) when is_integer(length) do
+    :socket.recv(sock, length, [], :nowait)
+  end
+  def recv({:"$tundra", ref}, length, :nowait) when is_integer(length) do
+    Tundra.Client.recv(ref, length, [], :nowait)
+  end
+
+  @spec send(tun_device(), iodata(), :nowait) :: :ok | {:error, any()}
+  def send({:"$socket", _} = sock, data, :nowait) do
+    :socket.send(sock, data, [], :nowait)
+  end
+  def send({:"$tundra", ref}, data, :nowait) do
+    Tundra.Client.send(ref, data, [], :nowait)
+  end
+
+  @spec cancel(tun_device(), :socket.select_info()) :: :ok | {:error, any()}
+  def cancel({:"$socket", _} = sock, select_info), do: :socket.cancel(sock, select_info)
+  def cancel({:"$tundra", ref}, select_info), do: Tundra.Client.cancel(ref, select_info)
+
+  @spec close(tun_device()) :: :ok | {:error, atom()}
+  def close({:"$socket", _} = sock), do: :socket.close(sock)
+  def close({:"$tundra", ref}), do: Tundra.Client.close(ref)
 
   defp convert_opts(opts) do
     Enum.reduce_while(opts, %{}, fn

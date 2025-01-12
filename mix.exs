@@ -5,7 +5,7 @@ defmodule Tundra.MixProject do
     [
       app: :tundra,
       version: "0.1.0",
-      elixir: "~> 1.18",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:elixir_make] ++ Mix.compilers()
@@ -23,7 +23,7 @@ defmodule Tundra.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:elixir_make, "~> 0.9", runtume: false},
+      {:elixir_make, "~> 0.9", runtime: false},
       {:typedstruct, "~> 0.5", runtime: false}
     ]
   end

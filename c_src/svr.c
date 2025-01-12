@@ -2,9 +2,6 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdint.h>
-#if __linux__
-#define __STDC_WANT_LIB_EXT2__ 1
-#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -96,18 +93,18 @@ static int create_tun(struct response_t *resp)
     }
 
     struct ctl_info info = {0};
-	strncpy(info.ctl_name, UTUN_CONTROL_NAME, sizeof(info.ctl_name));
+    strncpy(info.ctl_name, UTUN_CONTROL_NAME, sizeof(info.ctl_name));
     if (ioctl(tun, CTLIOCGINFO, &info) == -1)
     {
         exit_error("ioctl");
     }
 
-	struct sockaddr_sys addr = {
-			.ss_len = sizeof(addr),
-			.ss_family = AF_SYSTEM,
-			.ss_sysaddr = SYSPROTO_CONTROL,
-			.ss_reserved = {info.ctl_id, 0},
-	};
+    struct sockaddr_sys addr = {
+        .ss_len = sizeof(addr),
+        .ss_family = AF_SYSTEM,
+        .ss_sysaddr = SYSPROTO_CONTROL,
+        .ss_reserved = {info.ctl_id, 0},
+    };
 
     if (-1 == connect(tun, (const struct sockaddr *)&addr, sizeof(addr)))
     {
@@ -127,11 +124,16 @@ static int create_tun(struct response_t *resp)
     }
 
     struct ifreq ifr = {0};
-    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
+    ifr.ifr_flags = IFF_TUN; // | IFF_NO_PI;
 
     if (-1 == ioctl(tun, TUNSETIFF, (void *)&ifr))
     {
         exit_error("ioctl");
+    }
+
+    if (-1 == fcntl(tun, F_SETFL, fcntl(tun, F_GETFL) | O_NONBLOCK))
+    {
+        exit_error("fcntl");
     }
 
     strncpy(resp->msg.create_tun.name, ifr.ifr_name, sizeof(resp->msg.create_tun.name));
@@ -142,7 +144,7 @@ static int create_tun(struct response_t *resp)
 }
 
 #if __linux__
-static unsigned char netmask_to_prefixlen(const struct in6_addr * netmask)
+static unsigned char netmask_to_prefixlen(const struct in6_addr *netmask)
 {
     unsigned char prefixlen = 0;
     int i = 0;
@@ -155,19 +157,26 @@ static unsigned char netmask_to_prefixlen(const struct in6_addr * netmask)
         switch (netmask->__in6_u.__u6_addr8[i])
         {
         case 0x80:
-            prefixlen += 1; break;
+            prefixlen += 1;
+            break;
         case 0xC0:
-            prefixlen += 2; break;
+            prefixlen += 2;
+            break;
         case 0xE0:
-            prefixlen += 3; break;
+            prefixlen += 3;
+            break;
         case 0xF0:
-            prefixlen += 4; break;
+            prefixlen += 4;
+            break;
         case 0xF8:
-            prefixlen += 5; break;
+            prefixlen += 5;
+            break;
         case 0xFC:
-            prefixlen += 6; break;
+            prefixlen += 6;
+            break;
         case 0xFE:
-            prefixlen += 7; break;
+            prefixlen += 7;
+            break;
         default:
             break;
         }
@@ -178,82 +187,85 @@ static unsigned char netmask_to_prefixlen(const struct in6_addr * netmask)
 
 static void configure_tun(const char *name, struct create_tun_request_t *msg)
 {
-    struct in6_addr addr = { 0 };
+    struct in6_addr addr = {0};
     if (!inet_pton(AF_INET6, msg->addr, &addr))
     {
         exit_error("inet_pton (addr)");
     }
-    struct in6_addr dstaddr = { 0 };
+    struct in6_addr dstaddr = {0};
     if (!inet_pton(AF_INET6, msg->dstaddr, &dstaddr))
     {
         exit_error("inet_pton (addr)");
     }
-    struct in6_addr netmask = { 0 };
+    struct in6_addr netmask = {0};
     if (!inet_pton(AF_INET6, msg->netmask, &netmask))
     {
         exit_error("inet_pton (netmask)");
     }
 
 #if __APPLE__
-    char * cmd = NULL;
-    if(asprintf(&cmd, "ifconfig %s inet6 %s netmask %s mtu %d", name, msg->addr, msg->netmask, msg->mtu) >= 0)
+    char *cmd = NULL;
+    if (asprintf(&cmd, "ifconfig %s inet6 %s netmask %s mtu %d", name, msg->addr, msg->netmask, msg->mtu) >= 0)
     {
-        if(0 != system(cmd))
+        if (0 != system(cmd))
         {
             exit_error("system");
         }
         free(cmd);
     }
 #elif __linux__
-    static const struct in6_addr zero_addr = { 0 };
+    static const struct in6_addr zero_addr = {0};
 
-	int netlink_fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
-	if (netlink_fd == -1)
+    int netlink_fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+    if (netlink_fd == -1)
     {
         exit_error("socket(netlink)");
-	}
+    }
 
-	struct sockaddr_nl sockaddr = { .nl_family = AF_NETLINK };
-	if (-1 == bind(netlink_fd, (struct sockaddr*) &sockaddr, sizeof sockaddr))
+    struct sockaddr_nl sockaddr = {.nl_family = AF_NETLINK};
+    if (-1 == bind(netlink_fd, (struct sockaddr *)&sockaddr, sizeof sockaddr))
     {
         exit_error("bind(netlink)");
     }
 
-    if(setsockopt(netlink_fd, SOL_NETLINK, NETLINK_CAP_ACK, &(int){1}, sizeof(int)) == -1)
+    if (setsockopt(netlink_fd, SOL_NETLINK, NETLINK_CAP_ACK, &(int){1}, sizeof(int)) == -1)
     {
         exit_error("setsockopt(netlink)");
     }
 
-    struct {
+    struct
+    {
         struct nlmsghdr header;
         struct nlmsgerr content;
     } response = {0};
-	struct rtattr *request_attr;
+    struct rtattr *request_attr;
 
-    struct {
-		struct nlmsghdr  header;
-		struct ifaddrmsg content;
-		char             attributes_buf[RTA_LENGTH(sizeof addr) + RTA_LENGTH(sizeof dstaddr)];
-	} set_addr = {0};
+    struct
+    {
+        struct nlmsghdr header;
+        struct ifaddrmsg content;
+        char attributes_buf[RTA_LENGTH(sizeof addr) + RTA_LENGTH(sizeof dstaddr)];
+    } set_addr = {0};
 
-	size_t attributes_buf_avail = sizeof set_addr.attributes_buf;
+    size_t attributes_buf_avail = sizeof set_addr.attributes_buf;
 
-	set_addr.header.nlmsg_len = NLMSG_LENGTH(sizeof set_addr.content);
-	set_addr.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-	set_addr.header.nlmsg_type = RTM_NEWADDR;
+    set_addr.header.nlmsg_len = NLMSG_LENGTH(sizeof set_addr.content);
+    set_addr.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+    set_addr.header.nlmsg_type = RTM_NEWADDR;
     set_addr.header.nlmsg_seq = 1;
 
-	set_addr.content.ifa_index = if_nametoindex(name);
-	set_addr.content.ifa_family = AF_INET6;
-	set_addr.content.ifa_prefixlen = netmask_to_prefixlen(&netmask);
+    set_addr.content.ifa_index = if_nametoindex(name);
+    set_addr.content.ifa_family = AF_INET6;
+    set_addr.content.ifa_prefixlen = netmask_to_prefixlen(&netmask);
 
-	request_attr = IFA_RTA(&set_addr.content);
-	request_attr->rta_type = IFA_LOCAL;
-	request_attr->rta_len = RTA_LENGTH(sizeof (addr));
-	set_addr.header.nlmsg_len += request_attr->rta_len;
+    request_attr = IFA_RTA(&set_addr.content);
+    request_attr->rta_type = IFA_LOCAL;
+    request_attr->rta_len = RTA_LENGTH(sizeof(addr));
+    set_addr.header.nlmsg_len += request_attr->rta_len;
     memcpy(RTA_DATA(request_attr), &addr, sizeof addr);
 
-    if( memcmp(&dstaddr, &zero_addr, sizeof dstaddr) != 0 ) {
+    if (memcmp(&dstaddr, &zero_addr, sizeof dstaddr) != 0)
+    {
         request_attr = RTA_NEXT(request_attr, attributes_buf_avail);
         request_attr->rta_type = IFA_ADDRESS;
         request_attr->rta_len = RTA_LENGTH(sizeof dstaddr);
@@ -261,10 +273,10 @@ static void configure_tun(const char *name, struct create_tun_request_t *msg)
         memcpy(RTA_DATA(request_attr), &dstaddr, sizeof dstaddr);
     }
 
-	if (send(netlink_fd, &set_addr, set_addr.header.nlmsg_len, 0) != set_addr.header.nlmsg_len)
+    if (send(netlink_fd, &set_addr, set_addr.header.nlmsg_len, 0) != set_addr.header.nlmsg_len)
     {
-		exit_error("send(netlink,addr)");
-	}
+        exit_error("send(netlink,addr)");
+    }
 
     if (recv(netlink_fd, &response, sizeof response, 0) != sizeof response)
     {
@@ -275,32 +287,33 @@ static void configure_tun(const char *name, struct create_tun_request_t *msg)
         exit_error("response(addr)");
     }
 
-    struct {
-		struct nlmsghdr  header;
-		struct ifinfomsg content;
-		char             attributes_buf[RTA_LENGTH(sizeof msg->mtu)];
-	} set_mtu = {0};
+    struct
+    {
+        struct nlmsghdr header;
+        struct ifinfomsg content;
+        char attributes_buf[RTA_LENGTH(sizeof msg->mtu)];
+    } set_mtu = {0};
 
-	set_mtu.header.nlmsg_len = NLMSG_LENGTH(sizeof set_mtu.content);
-	set_mtu.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-	set_mtu.header.nlmsg_type = RTM_SETLINK;
+    set_mtu.header.nlmsg_len = NLMSG_LENGTH(sizeof set_mtu.content);
+    set_mtu.header.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+    set_mtu.header.nlmsg_type = RTM_SETLINK;
     set_mtu.header.nlmsg_seq = 2;
 
-	set_mtu.content.ifi_index = if_nametoindex(name);
-	set_mtu.content.ifi_family = AF_UNSPEC;
-	set_mtu.content.ifi_change = IFF_UP;
+    set_mtu.content.ifi_index = if_nametoindex(name);
+    set_mtu.content.ifi_family = AF_UNSPEC;
+    set_mtu.content.ifi_change = IFF_UP;
     set_mtu.content.ifi_flags = IFF_UP;
 
-    request_attr = (struct rtattr *)(((char *) &set_mtu) + NLMSG_ALIGN(set_mtu.header.nlmsg_len));
-	request_attr->rta_type = IFLA_MTU;
-	request_attr->rta_len = RTA_LENGTH(sizeof(msg->mtu));
-	set_mtu.header.nlmsg_len += request_attr->rta_len;
+    request_attr = (struct rtattr *)(((char *)&set_mtu) + NLMSG_ALIGN(set_mtu.header.nlmsg_len));
+    request_attr->rta_type = IFLA_MTU;
+    request_attr->rta_len = RTA_LENGTH(sizeof(msg->mtu));
+    set_mtu.header.nlmsg_len += request_attr->rta_len;
     memcpy(RTA_DATA(request_attr), &msg->mtu, sizeof(msg->mtu));
 
-	if (send(netlink_fd, &set_mtu, set_mtu.header.nlmsg_len, 0) != set_mtu.header.nlmsg_len)
+    if (send(netlink_fd, &set_mtu, set_mtu.header.nlmsg_len, 0) != set_mtu.header.nlmsg_len)
     {
-		exit_error("send(netlink,mtu)");
-	}
+        exit_error("send(netlink,mtu)");
+    }
     if (recv(netlink_fd, &response, sizeof response, 0) != sizeof response)
     {
         exit_error("recv(netlink,mtu)");
@@ -319,13 +332,13 @@ static void run_child(int c)
     read_with_retry(c, &req, sizeof(req));
     if (req.type == REQUEST_TYPE_CREATE_TUN && req.msg.create_tun.size == sizeof(req.msg.create_tun))
     {
-       int tun = create_tun(&resp);
-       configure_tun(resp.msg.create_tun.name, &req.msg.create_tun);
-       sendfd_with_retry(c, tun, &resp, sizeof(resp));
+        int tun = create_tun(&resp);
+        configure_tun(resp.msg.create_tun.name, &req.msg.create_tun);
+        sendfd_with_retry(c, tun, &resp, sizeof(resp));
     }
     else
     {
-      exit_error("unknown request type");
+        exit_error("unknown request type");
     }
 }
 

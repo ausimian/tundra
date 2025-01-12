@@ -12,11 +12,13 @@
 #define TUNDRA_MSG_NOSIGNAL MSG_NOSIGNAL
 #endif
 
-enum request_type_t {
+enum request_type_t
+{
     REQUEST_TYPE_CREATE_TUN = 0
 };
 
-struct create_tun_request_t {
+struct create_tun_request_t
+{
     size_t size;
     char addr[INET6_ADDRSTRLEN];
     char dstaddr[INET6_ADDRSTRLEN];
@@ -24,22 +26,26 @@ struct create_tun_request_t {
     int mtu;
 };
 
-struct create_tun_response_t {
+struct create_tun_response_t
+{
     size_t size;
     char name[IF_NAMESIZE];
 };
 
-struct request_t {
+struct request_t
+{
     enum request_type_t type;
-    union {
+    union
+    {
         struct create_tun_request_t create_tun;
     } msg;
 };
 
-struct response_t {
+struct response_t
+{
     enum request_type_t type;
-    union {
+    union
+    {
         struct create_tun_response_t create_tun;
     } msg;
 };
-
