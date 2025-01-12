@@ -4,11 +4,13 @@ defmodule Tundra.MixProject do
   def project do
     [
       app: :tundra,
+      description: "TUN device support for Elixir",
       version: version(),
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:elixir_make] ++ Mix.compilers(),
+      package: package(),
       docs: docs()
     ]
   end
@@ -38,6 +40,17 @@ defmodule Tundra.MixProject do
       source_ref: "#{version()}",
       logo: "tundra.png",
       extras: ["LICENSE.md", "CHANGELOG.md", "README.md"]
+    ]
+  end
+
+  defp package do
+    [
+      description: "TUN device support for Elixir",
+      licenses: ["MIT"],
+      files: ["lib", "c_src", "mix.exs", "Makefile", "README.md", "LICENSE.md", "CHANGELOG.md", ".formatter.exs"],
+      links: %{
+        "GitHub" => "https://github.com/austimian/tundra/tree/#{version()}",
+      }
     ]
   end
 
