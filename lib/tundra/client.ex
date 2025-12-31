@@ -30,7 +30,7 @@ defmodule Tundra.Client do
     # Try direct creation first (requires privileges)
     case create_tun_direct(params) do
       {:ok, {ref, name}} ->
-        # Direct creation succeeded
+        # Direct creation succeeded - both Linux and Darwin use $tundra refs
         {:ok, {{:"$tundra", ref}, name}}
 
       {:error, :eperm} ->

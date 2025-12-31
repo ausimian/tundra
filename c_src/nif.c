@@ -621,7 +621,7 @@ static ERL_NIF_TERM cancel_select(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 // Direct TUN device creation (requires privileges)
 static ERL_NIF_TERM create_tun_direct(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     if (argc != 1 || !enif_is_map(env, argv[0]))
     {
         return enif_make_badarg(env);
