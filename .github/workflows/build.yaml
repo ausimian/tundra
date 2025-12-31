@@ -75,7 +75,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             target: deb
           - os: macos-14
             target: pkg
