@@ -175,6 +175,6 @@ pkg: $(TARGET)
 		--version $(VERSION) \
 		--scripts $(OSX_DIR)/scripts \
 		--install-location / \
-		$(PKG_DIR)/$(PACKAGE_NAME)-$(VERSION).pkg
-	@echo "Package created: $(PKG_DIR)/$(PACKAGE_NAME)-$(VERSION).pkg"
+		$(PKG_DIR)/$(PACKAGE_NAME)-$(VERSION)-$(ARCH).pkg
+	@echo "Package created: $(PKG_DIR)/$(PACKAGE_NAME)-$(VERSION)-$(ARCH).pkg"
 	@echo "To uninstall: sudo uninstall-tundra-server"
