@@ -6,7 +6,8 @@
 # Assumes tundra_server is already running as root at /var/run/tundra.sock
 #
 # Usage:
-#   ./test_client.exs
+#   ./test_client.exs              # Create a new TUN device
+#   ./test_client.exs <name>       # Open an existing TUN device (e.g., tun0)
 
 Mix.install([{:tundra, path: "."}])
 
@@ -23,21 +24,33 @@ defmodule TundraTestClient do
   @dstaddr "fd11:b7b7:4360::1"
   @netmask "ffff:ffff:ffff:ffff::"
 
-  def run do
+  def run(args \\ []) do
     Logger.info("Starting Tundra test client...")
 
     # Start the Tundra application
     {:ok, _} = Application.ensure_all_started(:tundra)
 
-    # Create a TUN device
-    Logger.info("Creating TUN device with address #{@addr}")
-    Logger.info("  Destination: #{@dstaddr}")
-    Logger.info("  Netmask: #{@netmask}")
-    Logger.info("  MTU: #{@mtu}")
+    # Either open an existing device or create a new one
+    result =
+      case args do
+        [name | _] ->
+          Logger.info("Opening existing TUN device: #{name}")
+          case Tundra.open(name) do
+            {:ok, dev} -> {:ok, {dev, name}}
+            {:error, reason} -> {:error, reason}
+          end
 
-    case Tundra.create(@addr, dstaddr: @dstaddr, netmask: @netmask, mtu: @mtu) do
+        [] ->
+          Logger.info("Creating TUN device with address #{@addr}")
+          Logger.info("  Destination: #{@dstaddr}")
+          Logger.info("  Netmask: #{@netmask}")
+          Logger.info("  MTU: #{@mtu}")
+          Tundra.create(@addr, dstaddr: @dstaddr, netmask: @netmask, mtu: @mtu)
+      end
+
+    case result do
       {:ok, {dev, name}} ->
-        Logger.info("Successfully created TUN device: #{name}")
+        Logger.info("Successfully opened TUN device: #{name}")
         Logger.info("Device handle: #{inspect(dev)}")
 
         # Try to read from the device (non-blocking)
@@ -87,5 +100,5 @@ defmodule TundraTestClient do
   end
 end
 
-# Run the test
-TundraTestClient.run()
+# Run the test with command-line arguments
+TundraTestClient.run(System.argv())

@@ -139,6 +139,31 @@ defmodule Tundra do
           | {:netmask, tun_address()}
           | {:mtu, non_neg_integer()}
 
+  @doc """
+  Open an existing TUN device by name.
+
+  This function opens an existing TUN device that has already been created and
+  configured. It assumes the calling process has sufficient permissions to access
+  the device (e.g., via group membership or file permissions on `/dev/net/tun`).
+
+  This is only supported on Linux. On other platforms, returns `{:error, :enotsup}`.
+
+  ## Examples
+
+      iex> Tundra.open("tun0")
+      {:ok, {:"$tundra", #Reference<0.2990923237.3512074243.109526>}}
+
+      iex> Tundra.open("nonexistent")
+      {:error, :enodev}
+  """
+  @spec open(String.t()) :: {:ok, tun_device()} | {:error, any()}
+  def open(name) when is_binary(name) do
+    case Tundra.Client.open(name) do
+      {:ok, ref} -> {:ok, {:"$tundra", ref}}
+      {:error, _} = error -> error
+    end
+  end
+
   @spec create(tun_address(), list(tun_option())) ::
           {:ok, {tun_device(), String.t()}} | {:error, any()}
   @doc """

@@ -618,6 +618,77 @@ static ERL_NIF_TERM cancel_select(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     }
 }
 
+// Open an existing TUN device by name (Linux only)
+static ERL_NIF_TERM open_tun(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef __linux__
+    if (argc != 1)
+    {
+        return enif_make_badarg(env);
+    }
+
+    // Get the device name as a string
+    char name[IFNAMSIZ];
+    if (!enif_get_string(env, argv[0], name, sizeof(name), ERL_NIF_UTF8) || name[0] == '\0')
+    {
+        return enif_make_badarg(env);
+    }
+
+    // Allocate resource for the TUN device
+    struct fd_object_t *fd_obj = alloc_fd_object(env);
+    if (fd_obj == NULL)
+    {
+        return make_error(env, ENOMEM);
+    }
+
+    ERL_NIF_TERM result;
+
+    // Open /dev/net/tun
+    int fd = open("/dev/net/tun", O_RDWR);
+    if (fd == -1)
+    {
+        result = make_error(env, errno);
+        goto cleanup;
+    }
+
+    // Attach to the existing TUN device
+    struct ifreq ifr = {0};
+    strncpy(ifr.ifr_name, name, IFNAMSIZ - 1);
+    ifr.ifr_flags = IFF_TUN;
+
+    if (ioctl(fd, TUNSETIFF, (void *)&ifr) == -1)
+    {
+        int err = errno;
+        close(fd);
+        result = make_error(env, err);
+        goto cleanup;
+    }
+
+    // Set non-blocking mode
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1)
+    {
+        int err = errno;
+        close(fd);
+        result = make_error(env, err);
+        goto cleanup;
+    }
+
+    fd_obj->fd = fd;
+
+    // Prepare the success result
+    ERL_NIF_TERM res_term = enif_make_resource(env, fd_obj);
+    result = enif_make_tuple2(env, s_ok, res_term);
+
+cleanup:
+    enif_release_resource(fd_obj);
+    return result;
+#else
+    (void)argc;
+    (void)argv;
+    return make_error(env, ENOTSUP);
+#endif
+}
+
 // Direct TUN device creation (requires privileges)
 static ERL_NIF_TERM create_tun_direct(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -735,6 +806,7 @@ static ErlNifFunc nif_funcs[] =
         {"send_data", 2, send_data, 0},
         {"cancel_select", 2, cancel_select, 0},
         {"controlling_process", 2, controlling_process, 0},
-        {"create_tun_direct", 1, create_tun_direct, 0}};
+        {"create_tun_direct", 1, create_tun_direct, 0},
+        {"open_tun", 1, open_tun, 0}};
 
 ERL_NIF_INIT(Elixir.Tundra.Client, nif_funcs, load, NULL, NULL, NULL)

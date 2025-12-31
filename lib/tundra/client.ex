@@ -14,7 +14,8 @@ defmodule Tundra.Client do
           recv_data: 2,
           send_data: 2,
           cancel_select: 2,
-          create_tun_direct: 1
+          create_tun_direct: 1,
+          open_tun: 1
   end
 
   def child_spec(args) do
@@ -24,6 +25,14 @@ defmodule Tundra.Client do
       restart: :temporary,
       type: :worker
     }
+  end
+
+  @spec open(String.t()) :: {:ok, reference()} | {:error, atom()}
+  def open(name) when is_binary(name) do
+    case open_tun(to_charlist(name)) do
+      {:ok, ref} -> {:ok, ref}
+      {:error, _} = error -> error
+    end
   end
 
   def create_tun_device(pid, params) when is_pid(pid) and is_map(params) do
@@ -197,6 +206,7 @@ defmodule Tundra.Client do
   defp send_data(_ref, _data), do: :erlang.nif_error(:not_implemented)
   defp cancel_select(_ref, _select_info), do: :erlang.nif_error(:not_implemented)
   defp create_tun_direct(_params), do: :erlang.nif_error(:not_implemented)
+  defp open_tun(_name), do: :erlang.nif_error(:not_implemented)
 
   def close(_ref), do: :erlang.nif_error(:not_implemented)
   def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
