@@ -1,2 +1,4 @@
 tundra_server
+test_client
 *.o
+pkg/
