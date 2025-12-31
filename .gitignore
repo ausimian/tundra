@@ -35,6 +35,6 @@ tundra-*.tar
 /.elixir_ls/
 
 # Server build artifacts
-/server/tundra_server
-/server/test_client
-/server/**/*.o
+/c_src/server/tundra_server
+/c_src/server/test_client
+/c_src/server/**/*.o

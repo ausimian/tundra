@@ -27,7 +27,7 @@ defmodule Tundra do
 
   For unprivileged operation, Tundra requires a separate privileged server daemon
   (`tundra_server`) to be running. The server is a standalone C program located in
-  the `server/` directory and must be built and started independently with root
+  the `c_src/server/` directory and must be built and started independently with root
   privileges before using the Tundra library.
 
   The server listens on a Unix domain socket at `/var/run/tundra.sock` and accepts
@@ -35,7 +35,7 @@ defmodule Tundra do
   descriptor is sent back to the NIF via `SCM_RIGHTS`, which then creates a socket
   from it (on Darwin) or wraps it in a NIF resource (on Linux).
 
-  See the `server/README.md` file for instructions on building and running the server.
+  See the `c_src/server/README.md` file for instructions on building and running the server.
 
   ## Non-blocking I/O
 

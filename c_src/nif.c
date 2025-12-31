@@ -13,8 +13,8 @@
 #include <unistd.h>
 #include <erl_nif.h>
 #include <erl_driver.h>
-#include "../server/src/protocol.h"
-#include "../server/src/server.h"
+#include "server/src/protocol.h"
+#include "server/src/server.h"
 
 // Platform-specific includes
 #ifdef __linux__

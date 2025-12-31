@@ -19,7 +19,7 @@ Tundra supports two modes of operation:
    without requiring a server process.
 
 2. **Server-based creation**: When the BEAM VM lacks privileges, Tundra uses a
-   client-server architecture with a separate privileged daemon ([`tundra_server`](server/))
+   client-server architecture with a separate privileged daemon ([`tundra_server`](c_src/server/))
    that creates and configures TUN devices on behalf of unprivileged clients.
 
 Tundra automatically attempts direct creation first and falls back to the server if
@@ -55,12 +55,12 @@ directly and the server is not needed.
 For unprivileged operation, build and run the server with elevated privileges:
 
 ```bash
-cd server
+cd c_src/server
 make
 sudo ./tundra_server
 ```
 
-See [`server/README.md`](server/README.md) for detailed server documentation.
+See [`c_src/server/README.md`](c_src/server/README.md) for detailed server documentation.
 
 ## Platform Support
 

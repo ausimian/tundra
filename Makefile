@@ -1,9 +1,9 @@
 # Tundra NIF Makefile
 #
 # This builds only the NIF (Erlang Native Interface) component.
-# The standalone server is built separately in the server/ directory.
+# The standalone server is built separately in the c_src/server/ directory.
 #
-# See server/README.md for server build instructions.
+# See c_src/server/README.md for server build instructions.
 
 .PHONY: all nif clean
 
@@ -36,12 +36,12 @@ nif: $(TARGET_NIF)
 # Platform-specific source files
 TUN_SRC=
 ifeq ($(UNAME), Linux)
-	TUN_SRC=server/src/tun_linux.c
+	TUN_SRC=c_src/server/src/tun_linux.c
 else ifeq ($(UNAME), Darwin)
-	TUN_SRC=server/src/tun_darwin.c
+	TUN_SRC=c_src/server/src/tun_darwin.c
 endif
 
-$(TARGET_NIF): c_src/nif.c server/src/protocol.h server/src/server.h $(TUN_SRC)
+$(TARGET_NIF): c_src/nif.c c_src/server/src/protocol.h c_src/server/src/server.h $(TUN_SRC)
 	@mkdir -p $(TARGET_DIR)
 	$(CC) $(CFLAGS) -I${ERL_INTERFACE_INCLUDE_DIR} $(SYMFLAGS) -fPIC -shared -o $@ c_src/nif.c $(TUN_SRC)
 

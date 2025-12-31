@@ -87,7 +87,7 @@ jobs:
 
     - name: Build server and package
       run: |
-        cd server
+        cd c_src/server
         if [ "${{ github.ref_type }}" = "tag" ]; then
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"  # strip leading 'v' if present
@@ -100,7 +100,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: server-${{ matrix.target }}
-        path: server/pkg/*
+        path: c_src/server/pkg/*
 
   release:
     name: Create Release
