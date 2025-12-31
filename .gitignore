@@ -29,7 +29,7 @@ tundra-*.tar
 /.claude/
 
 # Ignore Erlang shell history
-/.erl.history/
+.erl.history/
 
 # Ignore ElixirLS files
 /.elixir_ls/
