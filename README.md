@@ -11,14 +11,18 @@ Tundra provides a simple API for creating and using TUN devices on Linux and Dar
 
 ## Architecture
 
-Tundra consists of two components:
+TUN device creation is a privileged operation requiring root or `CAP_NET_ADMIN` on Linux.
+Tundra supports two modes of operation:
 
-1. **Elixir Library** - Provides the Elixir API and NIF (Native Implemented Function) for communicating with the server
-2. **Standalone Server** ([`server/`](server/)) - A privileged C daemon that creates and configures TUN devices
+1. **Direct creation** (Linux only): When the BEAM VM runs with sufficient privileges,
+   Tundra creates TUN devices directly via the NIF without requiring a server process.
 
-As TUN device creation is a privileged operation on most systems, Tundra uses a
-client-server architecture. The server runs with elevated privileges and creates TUN
-devices on behalf of unprivileged clients. Communication happens via a Unix domain
+2. **Server-based creation**: When the BEAM VM lacks privileges, Tundra uses a
+   client-server architecture with a separate privileged daemon ([`tundra_server`](server/))
+   that creates and configures TUN devices on behalf of unprivileged clients.
+
+Tundra automatically attempts direct creation first and falls back to the server if
+privileges are insufficient. Communication with the server happens via a Unix domain
 socket (`/var/run/tundra.sock`), and file descriptors are passed using `SCM_RIGHTS`.
 
 Once created, the device is represented within the Elixir runtime as a NIF resource
@@ -41,9 +45,13 @@ def deps do
 end
 ```
 
-### Server
+### Server (Optional)
 
-The server must be built and run separately with elevated privileges:
+The server is only required for unprivileged operation. If your application runs
+with root privileges or `CAP_NET_ADMIN`, Tundra will create devices directly and
+the server is not needed.
+
+For unprivileged operation, build and run the server with elevated privileges:
 
 ```bash
 cd server
@@ -55,8 +63,8 @@ See [`server/README.md`](server/README.md) for detailed server documentation.
 
 ## Platform Support
 
-- **Linux**: TUN devices via `/dev/net/tun`, configured with netlink
-- **Darwin/macOS**: utun devices via kernel control API, configured with ifconfig
+- **Linux**: TUN devices via `/dev/net/tun`, configured with netlink. Supports both direct creation (when privileged) and server-based creation.
+- **Darwin/macOS**: utun devices via kernel control API, configured with ifconfig. Currently requires server-based creation.
 
 ## Usage
 

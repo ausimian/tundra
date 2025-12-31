@@ -28,35 +28,6 @@ static void exit_error(const char *msg)
     exit(1);
 }
 
-int tun_create(struct response_t *resp)
-{
-    int tun = open("/dev/net/tun", O_RDWR);
-    if (tun == -1)
-    {
-        exit_error("open(/dev/net/tun)");
-    }
-
-    struct ifreq ifr = {0};
-    ifr.ifr_flags = IFF_TUN;  // | IFF_NO_PI
-
-    if (ioctl(tun, TUNSETIFF, (void *)&ifr) == -1)
-    {
-        exit_error("ioctl(TUNSETIFF)");
-    }
-
-    if (fcntl(tun, F_SETFL, fcntl(tun, F_GETFL) | O_NONBLOCK) == -1)
-    {
-        exit_error("fcntl(O_NONBLOCK)");
-    }
-
-    strncpy(resp->msg.create_tun.name, ifr.ifr_name,
-            sizeof(resp->msg.create_tun.name) - 1);
-    resp->msg.create_tun.name[sizeof(resp->msg.create_tun.name) - 1] = '\0';
-    resp->type = REQUEST_TYPE_CREATE_TUN;
-
-    return tun;
-}
-
 static unsigned char netmask_to_prefixlen(const struct in6_addr *netmask)
 {
     unsigned char prefixlen = 0;
@@ -82,40 +53,84 @@ static unsigned char netmask_to_prefixlen(const struct in6_addr *netmask)
     return prefixlen;
 }
 
-void tun_configure(const char *name, struct create_tun_request_t *msg)
+/*
+ * Create TUN device - error-returning version
+ * Returns: fd on success, -errno on error
+ * Fills in resp->msg.create_tun.name with device name
+ */
+int tun_create_safe(struct create_tun_response_t *resp)
+{
+    int tun = open("/dev/net/tun", O_RDWR);
+    if (tun == -1)
+    {
+        return -errno;
+    }
+
+    struct ifreq ifr = {0};
+    ifr.ifr_flags = IFF_TUN;  // | IFF_NO_PI
+
+    if (ioctl(tun, TUNSETIFF, (void *)&ifr) == -1)
+    {
+        int err = errno;
+        close(tun);
+        return -err;
+    }
+
+    if (fcntl(tun, F_SETFL, fcntl(tun, F_GETFL) | O_NONBLOCK) == -1)
+    {
+        int err = errno;
+        close(tun);
+        return -err;
+    }
+
+    strncpy(resp->name, ifr.ifr_name, sizeof(resp->name) - 1);
+    resp->name[sizeof(resp->name) - 1] = '\0';
+
+    return tun;
+}
+
+/*
+ * Configure TUN device - error-returning version
+ * Returns: 0 on success, -errno on error
+ */
+int tun_configure_safe(const char *name, const struct create_tun_request_t *msg)
 {
     struct in6_addr addr, dstaddr, netmask;
     static const struct in6_addr zero_addr = {0};
 
-    if (!inet_pton(AF_INET6, msg->addr, &addr))
+    if (inet_pton(AF_INET6, msg->addr, &addr) != 1)
     {
-        exit_error("inet_pton(addr)");
+        return -EINVAL;
     }
-    if (!inet_pton(AF_INET6, msg->dstaddr, &dstaddr))
+    if (inet_pton(AF_INET6, msg->dstaddr, &dstaddr) != 1)
     {
-        exit_error("inet_pton(dstaddr)");
+        return -EINVAL;
     }
-    if (!inet_pton(AF_INET6, msg->netmask, &netmask))
+    if (inet_pton(AF_INET6, msg->netmask, &netmask) != 1)
     {
-        exit_error("inet_pton(netmask)");
+        return -EINVAL;
     }
 
     int netlink_fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (netlink_fd == -1)
     {
-        exit_error("socket(AF_NETLINK)");
+        return -errno;
     }
 
     struct sockaddr_nl sockaddr = {.nl_family = AF_NETLINK};
     if (bind(netlink_fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) == -1)
     {
-        exit_error("bind(netlink)");
+        int err = errno;
+        close(netlink_fd);
+        return -err;
     }
 
     if (setsockopt(netlink_fd, SOL_NETLINK, NETLINK_CAP_ACK,
                    &(int){1}, sizeof(int)) == -1)
     {
-        exit_error("setsockopt(NETLINK_CAP_ACK)");
+        int err = errno;
+        close(netlink_fd);
+        return -err;
     }
 
     struct
@@ -161,16 +176,21 @@ void tun_configure(const char *name, struct create_tun_request_t *msg)
     if (send(netlink_fd, &set_addr, set_addr.header.nlmsg_len, 0) !=
         (ssize_t)set_addr.header.nlmsg_len)
     {
-        exit_error("send(netlink,addr)");
+        int err = errno;
+        close(netlink_fd);
+        return -err;
     }
 
     if (recv(netlink_fd, &response, sizeof(response), 0) != sizeof(response))
     {
-        exit_error("recv(netlink,addr)");
+        int err = errno;
+        close(netlink_fd);
+        return -err;
     }
     if (response.content.error != 0)
     {
-        exit_error("netlink response(addr)");
+        close(netlink_fd);
+        return response.content.error;
     }
 
     // Set MTU and bring interface up
@@ -201,18 +221,48 @@ void tun_configure(const char *name, struct create_tun_request_t *msg)
     if (send(netlink_fd, &set_mtu, set_mtu.header.nlmsg_len, 0) !=
         (ssize_t)set_mtu.header.nlmsg_len)
     {
-        exit_error("send(netlink,mtu)");
+        int err = errno;
+        close(netlink_fd);
+        return -err;
     }
     if (recv(netlink_fd, &response, sizeof(response), 0) != sizeof(response))
     {
-        exit_error("recv(netlink,mtu)");
+        int err = errno;
+        close(netlink_fd);
+        return -err;
     }
     if (response.content.error != 0)
     {
-        exit_error("netlink response(mtu)");
+        close(netlink_fd);
+        return response.content.error;
     }
 
     close(netlink_fd);
+    return 0;
+}
+
+// Server-facing wrapper that exits on error
+int tun_create(struct response_t *resp)
+{
+    int result = tun_create_safe(&resp->msg.create_tun);
+    if (result < 0)
+    {
+        errno = -result;
+        exit_error("tun_create_safe");
+    }
+    resp->type = REQUEST_TYPE_CREATE_TUN;
+    return result;
+}
+
+// Server-facing wrapper that exits on error
+void tun_configure(const char *name, struct create_tun_request_t *msg)
+{
+    int result = tun_configure_safe(name, msg);
+    if (result < 0)
+    {
+        errno = -result;
+        exit_error("tun_configure_safe");
+    }
 }
 
 #endif // __linux__

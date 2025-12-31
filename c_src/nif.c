@@ -14,6 +14,18 @@
 #include <erl_nif.h>
 #include <erl_driver.h>
 #include "../server/src/protocol.h"
+#include "../server/src/server.h"
+
+// Platform-specific includes
+#ifdef __linux__
+#include <arpa/inet.h>
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#endif
 
 // Platform-specific MSG_NOSIGNAL flag
 #ifdef __APPLE__
@@ -606,6 +618,112 @@ static ERL_NIF_TERM cancel_select(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     }
 }
 
+// Direct TUN device creation (requires privileges)
+static ERL_NIF_TERM create_tun_direct(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef __linux__
+    if (argc != 1 || !enif_is_map(env, argv[0]))
+    {
+        return enif_make_badarg(env);
+    }
+
+    struct create_tun_request_t req = {0};
+    req.size = sizeof(req);
+
+    // Parse the parameters map
+    ErlNifMapIterator iter;
+    if (!enif_map_iterator_create(env, argv[0], &iter, ERL_NIF_MAP_ITERATOR_FIRST))
+    {
+        return enif_make_badarg(env);
+    }
+
+    ERL_NIF_TERM key, value;
+    bool ok = true;
+    while (ok && enif_map_iterator_get_pair(env, &iter, &key, &value))
+    {
+        if (0 == enif_compare(key, s_addr))
+        {
+            ok = !!enif_get_string(env, value, req.addr, sizeof(req.addr), ERL_NIF_UTF8);
+        }
+        else if (0 == enif_compare(key, s_dstaddr))
+        {
+            ok = !!enif_get_string(env, value, req.dstaddr, sizeof(req.dstaddr), ERL_NIF_UTF8);
+        }
+        else if (0 == enif_compare(key, s_netmask))
+        {
+            ok = !!enif_get_string(env, value, req.netmask, sizeof(req.netmask), ERL_NIF_UTF8);
+        }
+        else if (0 == enif_compare(key, s_mtu))
+        {
+            ok = !!enif_get_int(env, value, &req.mtu);
+        }
+
+        enif_map_iterator_next(env, &iter);
+    }
+    enif_map_iterator_destroy(env, &iter);
+
+    if (!ok)
+    {
+        return enif_make_badarg(env);
+    }
+
+    // Allocate resource for the TUN device
+    struct fd_object_t *fd_obj = alloc_fd_object(env);
+    if (fd_obj == NULL)
+    {
+        return make_error(env, ENOMEM);
+    }
+
+    ERL_NIF_TERM result;
+    struct create_tun_response_t resp = {0};
+
+    // Create TUN device using shared function
+    int fd = tun_create_safe(&resp);
+    if (fd < 0)
+    {
+        result = make_error(env, -fd);
+        goto cleanup;
+    }
+
+    fd_obj->fd = fd;
+
+    // Configure the device using shared function
+    int config_result = tun_configure_safe(resp.name, &req);
+    if (config_result < 0)
+    {
+        close(fd_obj->fd);
+        fd_obj->fd = -1;
+        result = make_error(env, -config_result);
+        goto cleanup;
+    }
+
+    // Prepare the success result
+    ErlNifBinary name_bin;
+    if (!enif_alloc_binary(strlen(resp.name), &name_bin))
+    {
+        close(fd_obj->fd);
+        fd_obj->fd = -1;
+        result = make_error(env, ENOMEM);
+        goto cleanup;
+    }
+
+    memcpy(name_bin.data, resp.name, name_bin.size);
+    ERL_NIF_TERM res_term = enif_make_resource(env, fd_obj);
+    ERL_NIF_TERM info = enif_make_tuple2(env, res_term, enif_make_binary(env, &name_bin));
+    enif_release_binary(&name_bin);
+
+    result = enif_make_tuple2(env, s_ok, info);
+
+cleanup:
+    enif_release_resource(fd_obj);
+    return result;
+#else
+    (void)argc;
+    (void)argv;
+    return make_error(env, ENOTSUP);
+#endif
+}
+
 static ErlNifFunc nif_funcs[] =
     {
         {"connect", 0, connect_svr, 0},
@@ -616,6 +734,7 @@ static ErlNifFunc nif_funcs[] =
         {"recv_data", 2, recv_data, 0},
         {"send_data", 2, send_data, 0},
         {"cancel_select", 2, cancel_select, 0},
-        {"controlling_process", 2, controlling_process, 0}};
+        {"controlling_process", 2, controlling_process, 0},
+        {"create_tun_direct", 1, create_tun_direct, 0}};
 
 ERL_NIF_INIT(Elixir.Tundra.Client, nif_funcs, load, NULL, NULL, NULL)

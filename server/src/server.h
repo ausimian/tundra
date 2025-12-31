@@ -11,9 +11,15 @@
 #define TUNDRA_MSG_NOSIGNAL MSG_NOSIGNAL
 #endif
 
-// Platform-specific TUN device functions
+// Platform-specific TUN device functions (server-facing, exit on error)
 int tun_create(struct response_t *resp);
 void tun_configure(const char *name, struct create_tun_request_t *msg);
+
+// Safe versions that return error codes (for NIF use)
+#ifdef __linux__
+int tun_create_safe(struct create_tun_response_t *resp);
+int tun_configure_safe(const char *name, const struct create_tun_request_t *msg);
+#endif
 
 // Protocol helpers
 void read_with_retry(int fd, void *buf, size_t count);

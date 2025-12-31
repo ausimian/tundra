@@ -33,7 +33,15 @@ clean:
 
 nif: $(TARGET_NIF)
 
-$(TARGET_NIF): c_src/nif.c server/src/protocol.h
+# Platform-specific source files
+TUN_SRC=
+ifeq ($(UNAME), Linux)
+	TUN_SRC=server/src/tun_linux.c
+else ifeq ($(UNAME), Darwin)
+	TUN_SRC=server/src/tun_darwin.c
+endif
+
+$(TARGET_NIF): c_src/nif.c server/src/protocol.h server/src/server.h $(TUN_SRC)
 	@mkdir -p $(TARGET_DIR)
-	$(CC) $(CFLAGS) -I${ERL_INTERFACE_INCLUDE_DIR} $(SYMFLAGS) -fPIC -shared -o $@ c_src/nif.c
+	$(CC) $(CFLAGS) -I${ERL_INTERFACE_INCLUDE_DIR} $(SYMFLAGS) -fPIC -shared -o $@ c_src/nif.c $(TUN_SRC)
 

@@ -4,10 +4,20 @@ defmodule Tundra do
 
   Tundra provides a simple API for creating and using TUN devices on Linux and Darwin.
 
-  As TUN device creation is a privileged operation on most systems, Tundra uses a
-  server process to create and configure TUN devices. Once created, the device is
-  represented within the runtime as a socket on Darwin and a NIF resource on Linux,
-  with process-ownership semantics i.e.
+  TUN device creation is a privileged operation requiring root or `CAP_NET_ADMIN`
+  on Linux. Tundra supports two modes of operation:
+
+  1. **Direct creation** (Linux only): When the BEAM VM runs with sufficient
+     privileges, Tundra creates TUN devices directly via the NIF without requiring
+     a server process.
+
+  2. **Server-based creation**: When the BEAM VM lacks privileges, Tundra delegates
+     device creation to a separate privileged server daemon (`tundra_server`).
+
+  Tundra automatically attempts direct creation first and falls back to the server
+  if privileges are insufficient. Once created, the device is represented within the
+  runtime as a socket on Darwin and a NIF resource on Linux, with process-ownership
+  semantics:
 
   - Only the owning process can read from or write to the device and receive i/o
     notifications from it.
@@ -15,9 +25,10 @@ defmodule Tundra do
 
   ## Server Process
 
-  Tundra requires a separate privileged server daemon (`tundra_server`) to be running.
-  The server is a standalone C program located in the `server/` directory and must be
-  built and started independently with root privileges before using the Tundra library.
+  For unprivileged operation, Tundra requires a separate privileged server daemon
+  (`tundra_server`) to be running. The server is a standalone C program located in
+  the `server/` directory and must be built and started independently with root
+  privileges before using the Tundra library.
 
   The server listens on a Unix domain socket at `/var/run/tundra.sock` and accepts
   requests from the NIF to create and configure TUN devices. The resulting file

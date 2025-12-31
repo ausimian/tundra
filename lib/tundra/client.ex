@@ -13,7 +13,8 @@ defmodule Tundra.Client do
           get_fd: 1,
           recv_data: 2,
           send_data: 2,
-          cancel_select: 2
+          cancel_select: 2,
+          create_tun_direct: 1
   end
 
   def child_spec(args) do
@@ -26,6 +27,31 @@ defmodule Tundra.Client do
   end
 
   def create_tun_device(pid, params) when is_pid(pid) and is_map(params) do
+    # Try direct creation first (requires privileges)
+    case create_tun_direct(params) do
+      {:ok, {ref, name}} ->
+        # Direct creation succeeded
+        {:ok, {{:"$tundra", ref}, name}}
+
+      {:error, :eperm} ->
+        # No privileges, fall back to server
+        create_via_server(pid, params)
+
+      {:error, :eacces} ->
+        # No access, fall back to server
+        create_via_server(pid, params)
+
+      {:error, :enotsup} ->
+        # Platform not supported for direct creation, try server
+        create_via_server(pid, params)
+
+      {:error, _other} = error ->
+        # Other error, return it
+        error
+    end
+  end
+
+  defp create_via_server(pid, params) do
     with {:ok, {ref, name}} <- :gen_statem.call(pid, {:create_tun_device, params}) do
       case :os.type() do
         {:unix, :darwin} ->
@@ -64,8 +90,8 @@ defmodule Tundra.Client do
     :gen_statem.start_link(__MODULE__, opts, [])
   end
 
-  typedstruct enforce: true do
-    field(:conn, reference())
+  typedstruct do
+    field(:conn, reference() | nil)
     field(:caller, GenServer.from() | nil, default: nil)
     field(:blocked, reference() | nil, default: nil)
   end
@@ -75,12 +101,28 @@ defmodule Tundra.Client do
 
   @impl true
   def init(_opts) do
-    with {:ok, conn} <- connect() do
-      {:ok, :connected, %__MODULE__{conn: conn}}
+    # Try to connect to server, but allow it to fail since we might use direct creation
+    case connect() do
+      {:ok, conn} ->
+        {:ok, :connected, %__MODULE__{conn: conn}}
+
+      {:error, _} ->
+        # Server not available, we'll try direct creation
+        {:ok, :disconnected, %__MODULE__{conn: nil}}
     end
   end
 
   @impl true
+  def handle_event(
+        {:call, from},
+        {:create_tun_device, _params},
+        :disconnected,
+        data
+      ) do
+    # Server not available, return error so caller can try direct creation
+    {:keep_state, data, {:reply, from, {:error, :enotsup}}}
+  end
+
   def handle_event(
         {:call, from},
         {:create_tun_device, params},
@@ -154,6 +196,7 @@ defmodule Tundra.Client do
   defp recv_data(_ref, _length), do: :erlang.nif_error(:not_implemented)
   defp send_data(_ref, _data), do: :erlang.nif_error(:not_implemented)
   defp cancel_select(_ref, _select_info), do: :erlang.nif_error(:not_implemented)
+  defp create_tun_direct(_params), do: :erlang.nif_error(:not_implemented)
 
   def close(_ref), do: :erlang.nif_error(:not_implemented)
   def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)
