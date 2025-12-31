@@ -90,8 +90,9 @@ jobs:
         cd server
         if [ "${{ github.ref_type }}" = "tag" ]; then
           VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # strip leading 'v' if present
         else
-          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.0-$(git rev-parse --short HEAD)")
+          VERSION="0.0.0+$(git rev-parse --short HEAD)"
         fi
         make ${{ matrix.target }} VERSION=$VERSION
 
