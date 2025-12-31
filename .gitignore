@@ -24,3 +24,9 @@ tundra-*.tar
 
 # IDE stuff
 /.vscode/
+
+# Ignore Claude AI files
+/.claude/
+
+# Ignore Erlang shell history
+/.erl.history/
