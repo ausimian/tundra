@@ -63,8 +63,55 @@ jobs:
 
     - name: Install dependencies
       run: mix deps.get
-    
+
     - name: Publish to Hex
       env:
         HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
       run: mix hex.publish --yes
+
+  server-packages:
+    name: Build Server Packages
+    if: github.ref_type == 'tag'
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            target: deb
+          - os: macos-14
+            target: pkg
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build server and package
+      run: |
+        cd server
+        make ${{ matrix.target }} VERSION=${{ github.ref_name }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: server-${{ matrix.target }}
+        path: server/pkg/*
+
+  release:
+    name: Create Release
+    if: github.ref_type == 'tag'
+    needs: [publish, server-packages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          server-deb/*
+          server-pkg/*
