@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.1 - 2025-12-31
+
+- Fix release workflow to correctly publish deb packages
+- Include architecture in macOS package filename
+
 ## 0.2.0 - 2025-12-31
 
 - Extract server into standalone C component at `c_src/server/`
