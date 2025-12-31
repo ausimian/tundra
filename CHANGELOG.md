@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.2.0 - 2025-12-31
+
+- Extract server into standalone C component at `c_src/server/`
+- Add direct TUN device creation for privileged operation (Linux and macOS)
+- Add deb and pkg packaging with systemd/launchd service integration
+- Add server package builds and GitHub releases to CI
+
 ## 0.1.9 - 2025-01-12
 
 - Internal CI/CD changes only
