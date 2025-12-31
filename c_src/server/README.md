@@ -57,7 +57,25 @@ The server implements a simple request/response protocol:
 
 ## Security
 
-- Socket permissions: 0777 (world-writable)
-- Access control via Unix socket filesystem permissions
+- Socket permissions: 0770 (root:tundra)
+- Only users in the `tundra` group can connect to the server
 - Each request handled in forked child process
 - Server validates all requests before processing
+
+### Group Membership
+
+The server restricts socket access to members of the `tundra` group. The installation packages create this group automatically.
+
+To allow a user to connect to the server (required for unprivileged operation):
+
+**Linux:**
+```bash
+sudo usermod -aG tundra $USER
+```
+
+**macOS:**
+```bash
+sudo dseditgroup -o edit -a $USER -t user tundra
+```
+
+After adding yourself to the group, log out and back in for the change to take effect.

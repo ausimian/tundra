@@ -6,6 +6,7 @@
  */
 
 #include <errno.h>
+#include <grp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include "server.h"
+
+#define TUNDRA_GROUP "tundra"
 
 static void exit_error(const char *msg)
 {
@@ -74,8 +77,20 @@ int main(int argc, char **argv)
         exit_error("bind");
     }
 
-    // Make socket accessible to all users
-    if (chmod(socket_path, 0777) == -1)
+    // Look up the tundra group
+    struct group *grp = getgrnam(TUNDRA_GROUP);
+    if (grp == NULL)
+    {
+        fprintf(stderr, "error: group '%s' not found\n", TUNDRA_GROUP);
+        exit(1);
+    }
+
+    // Set socket ownership to root:tundra with group-only access
+    if (chown(socket_path, 0, grp->gr_gid) == -1)
+    {
+        exit_error("chown");
+    }
+    if (chmod(socket_path, 0770) == -1)
     {
         exit_error("chmod");
     }

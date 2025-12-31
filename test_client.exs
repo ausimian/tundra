@@ -72,9 +72,17 @@ defmodule TundraTestClient do
             Logger.error("Error closing device: #{inspect(reason)}")
         end
 
+      {:error, reason} when reason in [:eacces, :eperm] ->
+        Logger.error("Failed to create TUN device: #{inspect(reason)}")
+        Logger.error("Permission denied. Check that you are a member of the 'tundra' group.")
+        Logger.error("  Linux: sudo usermod -aG tundra $USER")
+        Logger.error("  macOS: sudo dseditgroup -o edit -a $USER -t user tundra")
+        Logger.error("Log out and back in after adding yourself to the group.")
+        System.stop(1)
+
       {:error, reason} ->
         Logger.error("Failed to create TUN device: #{inspect(reason)}")
-        System.halt(1)
+        System.stop(1)
     end
   end
 end

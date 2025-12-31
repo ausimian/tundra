@@ -106,9 +106,9 @@ defmodule Tundra.Client do
       {:ok, conn} ->
         {:ok, :connected, %__MODULE__{conn: conn}}
 
-      {:error, _} ->
+      {:error, reason} ->
         # Server not available, we'll try direct creation
-        {:ok, :disconnected, %__MODULE__{conn: nil}}
+        {:ok, {:disconnected, reason}, %__MODULE__{conn: nil}}
     end
   end
 
@@ -116,11 +116,11 @@ defmodule Tundra.Client do
   def handle_event(
         {:call, from},
         {:create_tun_device, _params},
-        :disconnected,
+        {:disconnected, reason},
         data
       ) do
-    # Server not available, return error so caller can try direct creation
-    {:keep_state, data, {:reply, from, {:error, :enotsup}}}
+    # Server not available, return the connection error
+    {:keep_state, data, {:reply, from, {:error, reason}}}
   end
 
   def handle_event(

@@ -95,6 +95,7 @@ deb: $(TARGET)
 	@# postinst - enable and start service after install
 	@echo "#!/bin/sh" > $(DEB_ROOT)/DEBIAN/postinst
 	@echo "set -e" >> $(DEB_ROOT)/DEBIAN/postinst
+	@echo "getent group tundra >/dev/null || groupadd --system tundra" >> $(DEB_ROOT)/DEBIAN/postinst
 	@echo "systemctl daemon-reload" >> $(DEB_ROOT)/DEBIAN/postinst
 	@echo "systemctl enable tundra-server.service" >> $(DEB_ROOT)/DEBIAN/postinst
 	@echo "systemctl start tundra-server.service" >> $(DEB_ROOT)/DEBIAN/postinst
@@ -164,8 +165,11 @@ pkg: $(TARGET)
 	@echo 'launchctl bootout system/$(LAUNCHD_LABEL) 2>/dev/null || true' >> $(OSX_DIR)/scripts/preinstall
 	@echo 'exit 0' >> $(OSX_DIR)/scripts/preinstall
 	chmod 755 $(OSX_DIR)/scripts/preinstall
-	@# postinstall - load the daemon
+	@# postinstall - create group and load the daemon
 	@echo '#!/bin/bash' > $(OSX_DIR)/scripts/postinstall
+	@echo 'if ! dseditgroup -o read tundra >/dev/null 2>&1; then' >> $(OSX_DIR)/scripts/postinstall
+	@echo '    dseditgroup -o create -r "Tundra Users" tundra' >> $(OSX_DIR)/scripts/postinstall
+	@echo 'fi' >> $(OSX_DIR)/scripts/postinstall
 	@echo 'launchctl bootstrap system /Library/LaunchDaemons/$(LAUNCHD_LABEL).plist' >> $(OSX_DIR)/scripts/postinstall
 	@echo 'exit 0' >> $(OSX_DIR)/scripts/postinstall
 	chmod 755 $(OSX_DIR)/scripts/postinstall
