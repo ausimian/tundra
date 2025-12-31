@@ -30,3 +30,11 @@ tundra-*.tar
 
 # Ignore Erlang shell history
 /.erl.history/
+
+# Ignore ElixirLS files
+/.elixir_ls/
+
+# Server build artifacts
+/server/tundra_server
+/server/test_client
+/server/**/*.o

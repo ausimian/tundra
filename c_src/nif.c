@@ -13,7 +13,14 @@
 #include <unistd.h>
 #include <erl_nif.h>
 #include <erl_driver.h>
-#include "srv.h"
+#include "../server/src/protocol.h"
+
+// Platform-specific MSG_NOSIGNAL flag
+#ifdef __APPLE__
+#define TUNDRA_MSG_NOSIGNAL 0
+#elif __linux__
+#define TUNDRA_MSG_NOSIGNAL MSG_NOSIGNAL
+#endif
 
 static ErlNifResourceType *s_fdrt;
 

@@ -15,14 +15,16 @@ defmodule Tundra do
 
   ## Server Process
 
-  The server program is called `tundra_svr` and is located under the `priv` directory
-  of the Tundra application. The `:tundra` application expects that this server is
-  already running as a privileged user when it starts.
+  Tundra requires a separate privileged server daemon (`tundra_server`) to be running.
+  The server is a standalone C program located in the `server/` directory and must be
+  built and started independently with root privileges before using the Tundra library.
 
   The server listens on a Unix domain socket at `/var/run/tundra.sock` and accepts
-  requests from the NIF to create and configure the tun device. The resulting
-  file descriptor is sent back to the NIF, which then creates a socket from it (on
-  Darwin) or wraps it in a NIF resource (on Linux).
+  requests from the NIF to create and configure TUN devices. The resulting file
+  descriptor is sent back to the NIF via `SCM_RIGHTS`, which then creates a socket
+  from it (on Darwin) or wraps it in a NIF resource (on Linux).
+
+  See the `server/README.md` file for instructions on building and running the server.
 
   ## Non-blocking I/O
 

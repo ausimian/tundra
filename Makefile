@@ -1,9 +1,15 @@
-.PHONY: all nif svr
+# Tundra NIF Makefile
+#
+# This builds only the NIF (Erlang Native Interface) component.
+# The standalone server is built separately in the server/ directory.
+#
+# See server/README.md for server build instructions.
+
+.PHONY: all nif clean
 
 UNAME=$(shell uname)
 TARGET_DIR=$(MIX_APP_PATH)/priv
 TARGET_NIF=$(TARGET_DIR)/tundra_nif.so
-TARGET_SVR=$(TARGET_DIR)/tundra_svr
 
 CFLAGS=-Werror -Wfatal-errors -Wall -Wextra -O2 -flto -std=c11 -pedantic
 
@@ -19,21 +25,15 @@ else
 	$(error "Unsupported platform")
 endif
 
-all: nif svr
+all: nif
 	@:
 
 clean:
-	rm -f $(TARGET_NIF) $(TARGET_SVR)
+	rm -f $(TARGET_NIF)
 
 nif: $(TARGET_NIF)
 
-$(TARGET_NIF): c_src/nif.c
+$(TARGET_NIF): c_src/nif.c server/src/protocol.h
 	@mkdir -p $(TARGET_DIR)
-	$(CC) $(CFLAGS) -I${ERL_INTERFACE_INCLUDE_DIR} $(SYMFLAGS) -fPIC -shared -o $@ $?
-
-svr: $(TARGET_SVR)
-
-$(TARGET_SVR): c_src/svr.c
-	@mkdir -p $(TARGET_DIR)
-	$(CC) $(CFLAGS) -o $@ $?
+	$(CC) $(CFLAGS) -I${ERL_INTERFACE_INCLUDE_DIR} $(SYMFLAGS) -fPIC -shared -o $@ c_src/nif.c
 

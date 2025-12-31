@@ -1,22 +1,26 @@
+/*
+ * protocol.h - Tundra client/server protocol definitions
+ *
+ * This file defines the core protocol structures used for communication
+ * between the Elixir NIF client and the tundra_server daemon.
+ */
+
 #pragma once
 
 #include <stddef.h>
 #include <net/if.h>
-#include <sys/socket.h>
+#include <netinet/in.h>
 
+// Unix domain socket path for client/server communication
 #define SVR_PATH "/var/run/tundra.sock"
 
-#ifdef __APPLE__
-#define TUNDRA_MSG_NOSIGNAL 0
-#elif __linux__
-#define TUNDRA_MSG_NOSIGNAL MSG_NOSIGNAL
-#endif
-
+// Request types
 enum request_type_t
 {
     REQUEST_TYPE_CREATE_TUN = 0
 };
 
+// CREATE_TUN request payload
 struct create_tun_request_t
 {
     size_t size;
@@ -26,12 +30,14 @@ struct create_tun_request_t
     int mtu;
 };
 
+// CREATE_TUN response payload
 struct create_tun_response_t
 {
     size_t size;
     char name[IF_NAMESIZE];
 };
 
+// Request message (sent from client to server)
 struct request_t
 {
     enum request_type_t type;
@@ -41,6 +47,7 @@ struct request_t
     } msg;
 };
 
+// Response message (sent from server to client, includes FD via SCM_RIGHTS)
 struct response_t
 {
     enum request_type_t type;
