@@ -71,7 +71,6 @@ jobs:
 
   server-packages:
     name: Build Server Packages
-    if: github.ref_type == 'tag'
     needs: build
     strategy:
       matrix:
@@ -89,7 +88,12 @@ jobs:
     - name: Build server and package
       run: |
         cd server
-        make ${{ matrix.target }} VERSION=${{ github.ref_name }}
+        if [ "${{ github.ref_type }}" = "tag" ]; then
+          VERSION="${{ github.ref_name }}"
+        else
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.0-$(git rev-parse --short HEAD)")
+        fi
+        make ${{ matrix.target }} VERSION=$VERSION
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
