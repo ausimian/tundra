@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.0 - 2026-01-01
+
+- Restrict socket access to tundra group members for improved security
+- Add tundra group creation to deb/pkg postinstall scripts
+
 ## 0.2.1 - 2025-12-31
 
 - Fix release workflow to correctly publish deb packages
