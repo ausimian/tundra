@@ -118,5 +118,5 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          server-deb/*
-          server-pkg/*
+          server-deb/**/*.deb
+          server-pkg/**/*.pkg
