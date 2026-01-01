@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.3.1 - 2026-01-01
+
+- Add Linux ARM64 server package build
+
 ## 0.3.0 - 2026-01-01
 
 - Restrict socket access to tundra group members for improved security
