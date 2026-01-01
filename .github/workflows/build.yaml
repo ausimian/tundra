@@ -77,8 +77,13 @@ jobs:
         include:
           - os: ubuntu-22.04
             target: deb
+            arch: amd64
+          - os: ubuntu-22.04-arm
+            target: deb
+            arch: arm64
           - os: macos-14
             target: pkg
+            arch: arm64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -99,7 +104,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: server-${{ matrix.target }}
+        name: server-${{ matrix.target }}-${{ matrix.arch }}
         path: c_src/server/pkg/*
 
   release:
@@ -118,5 +123,5 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          server-deb/**/*.deb
-          server-pkg/**/*.pkg
+          server-deb-*/**/*.deb
+          server-pkg-*/**/*.pkg
