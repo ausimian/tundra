@@ -35,6 +35,11 @@ defmodule Tundra do
   descriptor is sent back to the NIF via `SCM_RIGHTS`, which then creates a socket
   from it (on Darwin) or wraps it in a NIF resource (on Linux).
 
+  Users connecting to the server must be members of the `tundra` group. On Linux,
+  use `sudo usermod -aG tundra $USER`; on macOS, use
+  `sudo dseditgroup -o edit -a $USER -t user tundra`. Log out and back in after
+  adding yourself to the group.
+
   See the `c_src/server/README.md` file for instructions on building and running the server.
 
   ## Non-blocking I/O

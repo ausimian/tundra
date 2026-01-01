@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.3.2 - 2026-01-02
+
+- Document tundra group requirement in README and module documentation
+
 ## 0.3.1 - 2026-01-01
 
 - Add Linux ARM64 server package build

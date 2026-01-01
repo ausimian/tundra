@@ -60,6 +60,18 @@ make
 sudo ./tundra_server
 ```
 
+Users connecting to the server must be members of the `tundra` group:
+
+```bash
+# Linux
+sudo usermod -aG tundra $USER
+
+# macOS
+sudo dseditgroup -o edit -a $USER -t user tundra
+```
+
+Log out and back in after adding yourself to the group.
+
 See [`c_src/server/README.md`](c_src/server/README.md) for detailed server documentation.
 
 ## Platform Support
