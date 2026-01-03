@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 0.4.0 - 2026-01-03
 
 - **Breaking**: TUN header is now handled automatically. `recv/3` returns raw IP
   packets without the 4-byte header, and `send/3` accepts raw IP packets and
