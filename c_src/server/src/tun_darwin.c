@@ -125,6 +125,18 @@ int tun_configure_safe(const char *name, const struct create_tun_request_t *msg)
         return -EINVAL;
     }
 
+    // Set destination address for point-to-point interface (if provided)
+    if (msg->dstaddr[0] != '\0')
+    {
+        ifr6.ifra_dstaddr.sin6_len = sizeof(ifr6.ifra_dstaddr);
+        ifr6.ifra_dstaddr.sin6_family = AF_INET6;
+        if (inet_pton(AF_INET6, msg->dstaddr, &ifr6.ifra_dstaddr.sin6_addr) != 1)
+        {
+            close(fd);
+            return -EINVAL;
+        }
+    }
+
     // Set lifetime to infinite
     ifr6.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
     ifr6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;

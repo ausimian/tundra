@@ -6,6 +6,10 @@
   packets without the 4-byte header, and `send/3` accepts raw IP packets and
   prepends the appropriate header based on IP version detection.
 
+- Add destination address support for point-to-point interfaces on macOS
+
+- Validate list length before inspecting iovec in send_data.
+
 ## 0.3.2 - 2026-01-02
 
 - Document tundra group requirement in README and module documentation
