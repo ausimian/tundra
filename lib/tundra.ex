@@ -99,13 +99,12 @@ defmodule Tundra do
     end
 
     def handle_continue({:reflect, data}, {dev, _} = state) do
-      # Swap the source and destination addresses of the ipv6 frame
-      <<hdr::binary-size(4),
-        pre::binary-size(8),
+      # Swap the source and destination addresses of the IPv6 packet
+      <<pre::binary-size(8),
         src::binary-size(16),
         dst::binary-size(16),
         rest::binary>> = data
-      reflected = [hdr, pre, dst, src, rest]
+      reflected = [pre, dst, src, rest]
 
       # Write the frame back to the device, assume it won't block
       :ok = Tundra.send(dev, reflected, :nowait)
@@ -199,8 +198,8 @@ defmodule Tundra do
   Receive data from a TUN device.
 
   The `length` argument specifies the maximum number of bytes to read. The caller
-  is responsible for ensuring this length is at least as large at the MTU of the
-  device, plus the size of the TUN header (4 bytes).
+  is responsible for ensuring this length is at least as large as the MTU of the
+  device. The returned data is the raw IP packet without any TUN framing headers.
 
   The `:nowait` option specifies that the operation should not block if no data is
   available. If data is available, it will be returned immediately. If no data is
@@ -212,7 +211,11 @@ defmodule Tundra do
     {:error, any()}
   )
   def recv({:"$socket", _} = sock, length, :nowait) when is_integer(length) do
-    :socket.recv(sock, length, [], :nowait)
+    case :socket.recv(sock, length, [], :nowait) do
+      {:ok, <<_header::binary-size(4), data::binary>>} -> {:ok, data}
+      {:ok, _data} -> {:error, :emsgsize}
+      other -> other
+    end
   end
 
   def recv({:"$tundra", ref}, length, :nowait) when is_integer(length) do
@@ -222,8 +225,9 @@ defmodule Tundra do
   @doc """
   Send data to a TUN device.
 
-  The `data` argument is an iodata that will be written to the device. The data should
-  include the 4-byte header that is expected by the TUN device.
+  The `data` argument is an iodata containing a raw IP packet (IPv4 or IPv6) that will
+  be written to the device. The TUN framing header is added automatically based on the
+  IP version detected in the packet.
 
   The `:nowait` option specifies that the operation should not block if the device's
   output buffer is full. If the buffer is full, the function will return
@@ -234,11 +238,43 @@ defmodule Tundra do
     {:error, any()}
   )
   def send({:"$socket", _} = sock, data, :nowait) do
-    :socket.send(sock, data, [], :nowait)
+    # Prepend 4-byte address family header for Darwin utun
+    packet = :erlang.iolist_to_binary(data)
+
+    header =
+      case packet do
+        # IPv4, AF_INET=2
+        <<4::4, _::bitstring>> -> <<2::32-big>>
+        # IPv6, AF_INET6=30
+        <<6::4, _::bitstring>> -> <<30::32-big>>
+        _ -> nil
+      end
+
+    if header do
+      :socket.send(sock, [header, packet], [], :nowait)
+    else
+      {:error, :einval}
+    end
   end
 
   def send({:"$tundra", ref}, data, :nowait) do
-    Tundra.Client.send(ref, data, [], :nowait)
+    # Prepend 4-byte TUN header for Linux: 2 bytes flags + 2 bytes protocol
+    packet = :erlang.iolist_to_binary(data)
+
+    header =
+      case packet do
+        # IPv4, ETH_P_IP=0x0800
+        <<4::4, _::bitstring>> -> <<0::16, 0x0800::16>>
+        # IPv6, ETH_P_IPV6=0x86DD
+        <<6::4, _::bitstring>> -> <<0::16, 0x86DD::16>>
+        _ -> nil
+      end
+
+    if header do
+      Tundra.Client.send(ref, [header, packet], [], :nowait)
+    else
+      {:error, :einval}
+    end
   end
 
   @doc """

@@ -39,13 +39,12 @@ defmodule Reflector do
   end
 
   def handle_continue({:reflect, data}, {dev, _} = state) do
-    # Swap the source and destination addresses of the ipv6 frame
-    <<hdr::binary-size(4),
-      pre::binary-size(8),
+    # Swap the source and destination addresses of the IPv6 packet
+    <<pre::binary-size(8),
       src::binary-size(16),
       dst::binary-size(16),
       rest::binary>> = data
-    reflected = [hdr, pre, dst, src, rest]
+    reflected = [pre, dst, src, rest]
 
     # Write the frame back to the device, assume it won't block
     :ok = Tundra.send(dev, reflected, :nowait)

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+- **Breaking**: TUN header is now handled automatically. `recv/3` returns raw IP
+  packets without the 4-byte header, and `send/3` accepts raw IP packets and
+  prepends the appropriate header based on IP version detection.
+
 ## 0.3.2 - 2026-01-02
 
 - Document tundra group requirement in README and module documentation

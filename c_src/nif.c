@@ -495,14 +495,16 @@ static ERL_NIF_TERM recv_data(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
             ret = make_error(env, err);
         }
     }
+    else if (n < 4)
+    {
+        // Received less than header size
+        ret = make_error(env, EMSGSIZE);
+    }
     else
     {
         ERL_NIF_TERM bin = enif_make_binary(env, &buf);
-        if (n < length)
-        {
-            bin = enif_make_sub_binary(env, bin, 0, n);
-        }
-
+        // Skip 4-byte TUN header, return only the IP packet
+        bin = enif_make_sub_binary(env, bin, 4, n - 4);
         ret = enif_make_tuple2(env, s_ok, bin);
     }
 
