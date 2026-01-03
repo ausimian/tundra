@@ -525,12 +525,19 @@ static ERL_NIF_TERM send_data(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return enif_make_tuple2(env, s_error, s_not_owner);
     }
 
-    ErlNifIOVec *iovec = NULL;
-    ERL_NIF_TERM tail;
-    if (!enif_inspect_iovec(env, 0, argv[1], &tail, &iovec))
+    unsigned max_elements;
+    if (!enif_get_list_length(env, argv[1], &max_elements) || max_elements == 0)
     {
         return enif_make_badarg(env);
     }
+
+    ErlNifIOVec *iovec = NULL;
+    ERL_NIF_TERM tail;
+    if (!enif_inspect_iovec(env, max_elements, argv[1], &tail, &iovec))
+    {
+        return enif_make_badarg(env);
+    }
+
     ssize_t n = writev(fd_obj->fd, iovec->iov, iovec->iovcnt);
 
     if (n < 0)
