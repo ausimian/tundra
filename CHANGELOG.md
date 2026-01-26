@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.4.1 - 2026-01-26
+
+- Fix recv buffer size to account for TUN header on Darwin and Linux
+
 ## 0.4.0 - 2026-01-03
 
 - **Breaking**: TUN header is now handled automatically. `recv/3` returns raw IP
