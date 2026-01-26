@@ -464,8 +464,9 @@ static ERL_NIF_TERM recv_data(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
         return enif_make_badarg(env);
     }
 
+    // Add 4 bytes for the TUN header that we strip from the result
     ErlNifBinary buf;
-    if (!enif_alloc_binary(length, &buf))
+    if (!enif_alloc_binary(length + 4, &buf))
     {
         return make_error(env, ENOMEM);
     }

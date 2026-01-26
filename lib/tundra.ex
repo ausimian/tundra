@@ -205,13 +205,11 @@ defmodule Tundra do
   available. If data is available, it will be returned immediately. If no data is
   available, the function will return `{:select, select_info}`.
   """
-  @spec(
-    recv(tun_device(), non_neg_integer(), :nowait) ::
-      {:ok, binary()} | {:select, :socket.select_info()},
-    {:error, any()}
-  )
+  @spec recv(tun_device(), non_neg_integer(), :nowait) ::
+          {:ok, binary()} | {:select, :socket.select_info()} | {:error, any()}
   def recv({:"$socket", _} = sock, length, :nowait) when is_integer(length) do
-    case :socket.recv(sock, length, [], :nowait) do
+    # Add 4 bytes for the Darwin utun header that we strip from the result
+    case :socket.recv(sock, length + 4, [], :nowait) do
       {:ok, <<_header::binary-size(4), data::binary>>} -> {:ok, data}
       {:ok, _data} -> {:error, :emsgsize}
       other -> other
