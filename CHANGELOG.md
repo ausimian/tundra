@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `Tundra.adopt/1` to take ownership of an already-created TUN device from an
+  open file descriptor. The original descriptor is duplicated and closed, so it
+  must not be used after a successful call.
 - **Breaking**: Raise the minimum required Elixir version to 1.18 (was 1.15).
 
 ## 0.4.1 - 2026-01-26

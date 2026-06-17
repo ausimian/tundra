@@ -90,6 +90,14 @@ Use `Tundra.create/2` to create a new TUN device with full configuration:
   mtu: 1500)
 ```
 
+To take ownership of a TUN device that was created and configured elsewhere, pass
+its open file descriptor to `Tundra.adopt/1`. Tundra duplicates the descriptor and
+closes the original, so it must not be used after a successful call:
+
+```elixir
+{:ok, {dev, name}} = Tundra.adopt(fd)
+```
+
 See the module documentation for complete API details.
 
 
