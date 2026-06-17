@@ -180,6 +180,44 @@ defmodule Tundra do
     end
   end
 
+  @spec adopt(non_neg_integer()) :: {:ok, {tun_device(), String.t()}} | {:error, any()}
+  @doc """
+  Adopt an already-created TUN device from an open file descriptor.
+
+  Use this when a TUN device has been created and configured outside of Tundra
+  (for example by another program, an init system, or inherited at startup) and
+  you want to drive it with Tundra's API. The device must already be configured;
+  `adopt/1` only takes ownership of the descriptor, it does not configure the
+  interface.
+
+  `fd` is the integer file descriptor of the device:
+
+  - On Linux, a descriptor opened on `/dev/net/tun` and attached to a TUN device
+    via `TUNSETIFF`.
+  - On Darwin, a `utun` control socket descriptor
+    (`PF_SYSTEM`/`SYSPROTO_CONTROL`).
+
+  On success returns a tuple containing a device tuple and the name of the
+  device, exactly as `create/2` does. As with a created device, the adopted
+  device is owned by the calling process and is closed when that process exits.
+
+  > #### The original descriptor is consumed {: .warning}
+  >
+  > On success, Tundra duplicates `fd` (via the socket library on Darwin, or the
+  > NIF on Linux) and closes the original. **The caller must not use `fd` after a
+  > successful call** — reading from, writing to or closing it leads to undefined
+  > behaviour. On error, `fd` is left untouched and remains owned by the caller.
+
+  ## Examples
+
+      iex> Tundra.adopt(23)
+      {:ok, {{:"$socket", #Reference<0.2990923237.3512074243.109526>}, "utun6"}} # Darwin
+      {:ok, {{:"$tundra", #Reference<0.2990923237.3512074243.109526>}, "tun0"}}  # Linux
+  """
+  def adopt(fd) when is_integer(fd) and fd >= 0 do
+    Tundra.Client.adopt(fd)
+  end
+
   @doc """
   Transfer control of a TUN device to another process.
 

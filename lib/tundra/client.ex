@@ -14,7 +14,10 @@ defmodule Tundra.Client do
           recv_data: 2,
           send_data: 2,
           cancel_select: 2,
-          create_tun_direct: 1
+          create_tun_direct: 1,
+          adopt_tun_fd: 1,
+          get_utun_name: 1,
+          close_raw_fd: 1
   end
 
   def child_spec(args) do
@@ -48,6 +51,33 @@ defmodule Tundra.Client do
       {:error, _other} = error ->
         # Other error, return it
         error
+    end
+  end
+
+  @spec adopt(non_neg_integer()) ::
+          {:ok, {{:"$socket", reference()} | {:"$tundra", reference()}, String.t()}}
+          | {:error, any()}
+  def adopt(fd) when is_integer(fd) and fd >= 0 do
+    case :os.type() do
+      {:unix, :darwin} ->
+        with {:ok, name} <- get_utun_name(fd),
+             {:ok, s} <- :socket.open(fd, %{domain: 32, type: 2, protocol: 2}) do
+          # :socket.open/2 duplicates the descriptor, so close the original to
+          # avoid leaking it. The caller must not use it after this point.
+          _ = close_raw_fd(fd)
+          {:ok, {s, name}}
+        end
+
+      {:unix, :linux} ->
+        with {:ok, {ref, name}} <- adopt_tun_fd(fd) do
+          # adopt_tun_fd duplicates the descriptor, so close the original to
+          # avoid leaking it. The caller must not use it after this point.
+          _ = close_raw_fd(fd)
+          {:ok, {{:"$tundra", ref}, name}}
+        end
+
+      _ ->
+        {:error, :enotsup}
     end
   end
 
@@ -197,6 +227,9 @@ defmodule Tundra.Client do
   defp send_data(_ref, _data), do: :erlang.nif_error(:not_implemented)
   defp cancel_select(_ref, _select_info), do: :erlang.nif_error(:not_implemented)
   defp create_tun_direct(_params), do: :erlang.nif_error(:not_implemented)
+  defp adopt_tun_fd(_fd), do: :erlang.nif_error(:not_implemented)
+  defp get_utun_name(_fd), do: :erlang.nif_error(:not_implemented)
+  defp close_raw_fd(_fd), do: :erlang.nif_error(:not_implemented)
 
   def close(_ref), do: :erlang.nif_error(:not_implemented)
   def controlling_process(_ref, _pid), do: :erlang.nif_error(:not_implemented)

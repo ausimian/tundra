@@ -27,6 +27,13 @@
 #include <net/if.h>
 #endif
 
+#ifdef __APPLE__
+#include <net/if.h>
+#include <net/if_utun.h>
+#include <sys/kern_control.h>
+#include <sys/sys_domain.h>
+#endif
+
 // Platform-specific MSG_NOSIGNAL flag
 #ifdef __APPLE__
 #define TUNDRA_MSG_NOSIGNAL 0
@@ -734,6 +741,133 @@ cleanup:
 #endif
 }
 
+// Close a raw (non-resource) file descriptor.
+//
+// Used to release the original descriptor after it has been adopted: on Darwin
+// :socket.open/2 duplicates the fd, and on Linux adopt_tun_fd duplicates it, so
+// the original must be closed to avoid leaking it.
+static ERL_NIF_TERM close_raw_fd(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    int fd;
+    if (argc != 1 || !enif_get_int(env, argv[0], &fd) || fd < 0)
+    {
+        return enif_make_badarg(env);
+    }
+
+    if (close(fd) == -1)
+    {
+        return make_error(env, errno);
+    }
+
+    return s_ok;
+}
+
+// Adopt an existing TUN file descriptor (Linux).
+//
+// Validates that the descriptor refers to a TUN device, retrieves its name,
+// duplicates it into a NIF resource owned by the calling process and returns
+// {ref, name}. The original descriptor is left open for the caller to close
+// (see close_raw_fd/1). dup(2) shares the open file description, so O_NONBLOCK
+// is set on the copy to satisfy the NIF's non-blocking I/O model.
+static ERL_NIF_TERM adopt_tun_fd(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef __linux__
+    int orig_fd;
+    if (argc != 1 || !enif_get_int(env, argv[0], &orig_fd) || orig_fd < 0)
+    {
+        return enif_make_badarg(env);
+    }
+
+    // Confirm this is a TUN device and retrieve its name.
+    struct ifreq ifr = {0};
+    if (ioctl(orig_fd, TUNGETIFF, &ifr) == -1)
+    {
+        return make_error(env, errno);
+    }
+
+    int fd = dup(orig_fd);
+    if (fd == -1)
+    {
+        return make_error(env, errno);
+    }
+    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == -1)
+    {
+        int err = errno;
+        close(fd);
+        return make_error(env, err);
+    }
+
+    struct fd_object_t *fd_obj = alloc_fd_object(env);
+    if (fd_obj == NULL)
+    {
+        close(fd);
+        return make_error(env, ENOMEM);
+    }
+    fd_obj->fd = fd;
+
+    ERL_NIF_TERM result;
+    ErlNifBinary name_bin;
+    if (enif_alloc_binary(strlen(ifr.ifr_name), &name_bin))
+    {
+        memcpy(name_bin.data, ifr.ifr_name, name_bin.size);
+        ERL_NIF_TERM res_term = enif_make_resource(env, fd_obj);
+        ERL_NIF_TERM info = enif_make_tuple2(env, res_term, enif_make_binary(env, &name_bin));
+        enif_release_binary(&name_bin);
+        result = enif_make_tuple2(env, s_ok, info);
+    }
+    else
+    {
+        close(fd_obj->fd);
+        fd_obj->fd = -1;
+        result = make_error(env, ENOMEM);
+    }
+
+    enif_release_resource(fd_obj);
+    return result;
+#else
+    (void)argc;
+    (void)argv;
+    return make_error(env, ENOTSUP);
+#endif
+}
+
+// Retrieve the interface name of an existing utun file descriptor (Darwin).
+//
+// Doubles as validation that the descriptor is a utun control socket; the fd is
+// left untouched so the caller can wrap it with :socket.open/2.
+static ERL_NIF_TERM get_utun_name(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef __APPLE__
+    int fd;
+    if (argc != 1 || !enif_get_int(env, argv[0], &fd) || fd < 0)
+    {
+        return enif_make_badarg(env);
+    }
+
+    char name[IF_NAMESIZE] = {0};
+    socklen_t len = sizeof(name);
+    if (getsockopt(fd, SYSPROTO_CONTROL, UTUN_OPT_IFNAME, name, &len) == -1)
+    {
+        return make_error(env, errno);
+    }
+
+    size_t name_len = strnlen(name, sizeof(name));
+    ErlNifBinary name_bin;
+    if (!enif_alloc_binary(name_len, &name_bin))
+    {
+        return make_error(env, ENOMEM);
+    }
+    memcpy(name_bin.data, name, name_len);
+    ERL_NIF_TERM ret = enif_make_tuple2(env, s_ok, enif_make_binary(env, &name_bin));
+    enif_release_binary(&name_bin);
+    return ret;
+#else
+    (void)argc;
+    (void)argv;
+    return make_error(env, ENOTSUP);
+#endif
+}
+
 static ErlNifFunc nif_funcs[] =
     {
         {"connect", 0, connect_svr, 0},
@@ -745,6 +879,9 @@ static ErlNifFunc nif_funcs[] =
         {"send_data", 2, send_data, 0},
         {"cancel_select", 2, cancel_select, 0},
         {"controlling_process", 2, controlling_process, 0},
-        {"create_tun_direct", 1, create_tun_direct, 0}};
+        {"create_tun_direct", 1, create_tun_direct, 0},
+        {"adopt_tun_fd", 1, adopt_tun_fd, 0},
+        {"get_utun_name", 1, get_utun_name, 0},
+        {"close_raw_fd", 1, close_raw_fd, 0}};
 
 ERL_NIF_INIT(Elixir.Tundra.Client, nif_funcs, load, NULL, NULL, NULL)
