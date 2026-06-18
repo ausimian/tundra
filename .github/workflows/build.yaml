@@ -18,17 +18,18 @@ jobs:
       MIX_ENV: prod
     strategy:
       matrix:
-        elixir: [ '1.15.8', '1.16.3', '1.17.3', '1.18.1' ]
-        otp: [ '27.2',  '26.2']
+        elixir: [ '1.18.4', '1.19.5', '1.20.1' ]
+        otp: [ '27.x', '28.x', '29.x' ]
         exclude:
-          - elixir: '1.15.8'
-            otp: '27.2'
-          - elixir: '1.16.3'
-            otp: '27.2'
+          # Neither Elixir 1.18 nor 1.19 has a precompiled build for OTP 29
+          - elixir: '1.18.4'
+            otp: '29.x'
+          - elixir: '1.19.5'
+            otp: '29.x'
 
     steps:
     - name: Setup Elixir
-      uses: erlef/setup-elixir@v1
+      uses: erlef/setup-beam@v1
       with:
         elixir-version: ${{ matrix.elixir }}
         otp-version: ${{ matrix.otp }}
@@ -53,10 +54,10 @@ jobs:
 
     steps:
     - name: Setup Elixir
-      uses: erlef/setup-elixir@v1
+      uses: erlef/setup-beam@v1
       with:
-        elixir-version: '1.18.1'
-        otp-version: '27.2'
+        elixir-version: '1.19.5'
+        otp-version: '28.x'
 
     - name: Check out
       uses: actions/checkout@v4

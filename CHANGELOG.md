@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased
+
+- **Breaking**: Raise the minimum required Elixir version to 1.18 (was 1.15).
+
 ## 0.4.1 - 2026-01-26
 
 - Fix recv buffer size to account for TUN header on Darwin and Linux

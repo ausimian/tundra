@@ -6,7 +6,7 @@ defmodule Tundra.MixProject do
       app: :tundra,
       description: "TUN device support for Elixir",
       version: version(),
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:elixir_make] ++ Mix.compilers(),
@@ -29,7 +29,7 @@ defmodule Tundra.MixProject do
     [
       {:elixir_make, "~> 0.9", runtime: false},
       {:typedstruct, "~> 0.5", runtime: false},
-      {:ex_doc, "~> 0.36", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
   end
 
