@@ -2,6 +2,18 @@
 
 <!-- %% CHANGELOG_ENTRIES %% -->
 
+## 0.5.0 - 2026-06-18
+
+### Added
+
+- `Tundra.adopt/1` to take ownership of an already-created TUN device from an
+  open file descriptor. The original descriptor is duplicated and closed, so it
+  must not be used after a successful call.
+
+### Changed
+
+- **Breaking**: Raise the minimum required Elixir version to 1.18 (was 1.15).
+
 ## 0.4.1 - 2026-01-26
 
 - Fix recv buffer size to account for TUN header on Darwin and Linux
